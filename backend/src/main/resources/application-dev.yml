@@ -1,0 +1,13 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:${DB_HOST:localhost}}:${POSTGRES_PORT:5432}/${POSTGRES_DB:sip_db}
+    username: ${POSTGRES_USER:sip_user}
+    password: ${POSTGRES_PASSWORD:sip_password}
+    hikari:
+      maximum-pool-size: 5
+  flyway:
+    locations: classpath:db/migration,filesystem:../db/migrations
+    baseline-on-migrate: true
+logging:
+  level:
+    org.hibernate.SQL: warn

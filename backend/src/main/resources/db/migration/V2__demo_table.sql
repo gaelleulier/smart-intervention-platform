@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS demo (
+  id SERIAL PRIMARY KEY,
+  label VARCHAR(128) NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+INSERT INTO demo(label) VALUES ('hello');
