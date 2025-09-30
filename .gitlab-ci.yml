@@ -1,0 +1,115 @@
+stages: [test, build]
+
+default:
+  before_script:
+    - echo "CI Job: $CI_JOB_NAME on $CI_COMMIT_REF_NAME"
+
+# =====================
+# Backend — TEST
+# =====================
+backend:test:
+  stage: test
+  image: maven:3.9-eclipse-temurin-21
+  services:
+    - name: postgres:16-alpine
+      alias: postgres
+      variables:
+        POSTGRES_DB: sip_db
+        POSTGRES_USER: sip_user
+        POSTGRES_PASSWORD: sip_password
+  variables:
+    MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
+    SPRING_PROFILES_ACTIVE: "dev"
+    POSTGRES_DB: "sip_db"
+    POSTGRES_USER: "sip_user"
+    POSTGRES_PASSWORD: "sip_password"
+    POSTGRES_HOST: "postgres"
+    POSTGRES_PORT: "5432"
+  cache:
+    key: maven-${CI_COMMIT_REF_SLUG}
+    paths:
+      - backend/.m2/repository
+  before_script:
+    - cd backend
+    - ./mvnw -v
+  script:
+    - ./mvnw -q test
+  artifacts:
+    when: always
+    reports:
+      junit: backend/target/surefire-reports/*.xml
+
+# =====================
+# Frontend — TEST (lint/build light)
+# =====================
+frontend:test:
+  stage: test
+  image: node:22
+  cache:
+    key: npm-${CI_COMMIT_REF_SLUG}
+    paths:
+      - frontend/.npm/
+  before_script:
+    - cd frontend
+    - node -v && npm -v
+    - npm config set cache .npm --global
+  script:
+    - npm ci
+    - npm run build -- --configuration=development
+  artifacts:
+    when: always
+    paths:
+      - frontend/dist/
+    expire_in: 1 week
+
+# =====================
+# Backend — BUILD (jar)
+# =====================
+backend:build:
+  stage: build
+  image: maven:3.9-eclipse-temurin-21
+  needs: ["backend:test"]
+  variables:
+    MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
+  cache:
+    key: maven-${CI_COMMIT_REF_SLUG}
+    paths:
+      - backend/.m2/repository
+  before_script:
+    - cd backend
+  script:
+    - ./mvnw -q -DskipTests package
+  artifacts:
+    paths:
+      - backend/target/*.jar
+    expire_in: 1 week
+
+# =====================
+# Frontend — BUILD (prod dist)
+# =====================
+frontend:build:
+  stage: build
+  image: node:22
+  needs: ["frontend:test"]
+  cache:
+    key: npm-${CI_COMMIT_REF_SLUG}
+    paths:
+      - frontend/.npm/
+  before_script:
+    - cd frontend
+    - npm config set cache .npm --global
+  script:
+    - npm ci
+    - npm run build -- --configuration=production
+  artifacts:
+    paths:
+      - frontend/dist/
+    expire_in: 1 week
+
+# =====================
+# Workflow rules
+# =====================
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
