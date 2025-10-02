@@ -186,6 +186,14 @@ make db-cli
 
 ---
 
+## Users Module (MVP)
+
+* **Backend API** (`/api/users`): supports pagination (`page`, `size`), search (`query` matches email/full name), and role filtering (`role=ADMIN|DISPATCHER|TECH`) alongside full CRUD endpoints.
+* **Frontend UI**: open `http://localhost:4200/users` to manage accounts (list, filter, create, edit, delete). The UI consumes the backend API through the dev proxy (`/api`).
+* Validation and errors: API returns RFC 7807 `ProblemDetail` payloads; UI surfaces them in-page for fast troubleshooting.
+
+---
+
 ## Health Endpoints
 
 * `GET /api/health` – application + database ping (dev convenience endpoint)
