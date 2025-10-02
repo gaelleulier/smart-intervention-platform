@@ -4,9 +4,13 @@
       <h2>Users</h2>
       <p>Manage user accounts for the intervention platform.</p>
     </div>
-    <button type="button" class="button button--ghost" (click)="onRefresh()" [disabled]="loading()">
-      Refresh
-    </button>
+    <div class="header__actions">
+      <span class="badge" *ngIf="activeRole() as role">{{ role }}</span>
+      <button type="button" class="button button--ghost" (click)="onRefresh()" [disabled]="loading()">
+        Refresh
+      </button>
+      <button type="button" class="button button--ghost" (click)="logout()">Logout</button>
+    </div>
   </header>
 
   <section class="card filters">
@@ -39,6 +43,30 @@
     </form>
   </section>
 
+  <section class="card password">
+    <h3>Change your password</h3>
+    <p class="password__hint">Update your own credentials. You will be redirected to the login screen afterwards.</p>
+    <form class="password__form" [formGroup]="changePasswordForm" (ngSubmit)="onChangePassword()">
+      <label class="field">
+        <span>Current password</span>
+        <input type="password" formControlName="currentPassword" autocomplete="current-password" />
+      </label>
+      <label class="field">
+        <span>New password</span>
+        <input type="password" formControlName="newPassword" autocomplete="new-password" />
+      </label>
+      <label class="field">
+        <span>Confirm password</span>
+        <input type="password" formControlName="confirmPassword" autocomplete="new-password" />
+      </label>
+      <div *ngIf="changePasswordError() as err" class="alert alert--error">{{ err }}</div>
+      <div *ngIf="changePasswordSuccess()" class="alert alert--success">Password updated. Please log in again.</div>
+      <div class="password__actions">
+        <button type="submit" class="button" [disabled]="changingPassword()">Update password</button>
+      </div>
+    </form>
+  </section>
+
   <section class="card create">
     <h3>Create user</h3>
     <form class="create__form" [formGroup]="createForm" (ngSubmit)="onCreateUser()">
@@ -49,6 +77,10 @@
       <label class="field">
         <span>Full name</span>
         <input type="text" formControlName="fullName" placeholder="First Last" />
+      </label>
+      <label class="field">
+        <span>Password</span>
+        <input type="password" formControlName="password" placeholder="Strong password" autocomplete="new-password" />
       </label>
       <label class="field">
         <span>Role</span>
@@ -77,6 +109,10 @@
       <label class="field">
         <span>Full name</span>
         <input type="text" formControlName="fullName" />
+      </label>
+      <label class="field">
+        <span>New password (optional)</span>
+        <input type="password" formControlName="password" autocomplete="new-password" />
       </label>
       <label class="field">
         <span>Role</span>

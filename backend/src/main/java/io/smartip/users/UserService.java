@@ -4,9 +4,12 @@ import io.smartip.domain.UserEntity;
 import io.smartip.domain.UserRepository;
 import io.smartip.domain.UserRole;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,9 +17,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public UserService(UserRepository userRepository) {
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Transactional(readOnly = true)
@@ -57,6 +62,7 @@ public class UserService {
         entity.setEmail(command.email());
         entity.setFullName(command.fullName());
         entity.setRole(command.role());
+        entity.setPasswordHash(passwordEncoder.encode(command.password()));
         return userRepository.save(entity);
     }
 
@@ -70,6 +76,7 @@ public class UserService {
         entity.setEmail(command.email());
         entity.setFullName(command.fullName());
         entity.setRole(command.role());
+        command.optionalPassword().ifPresent(password -> entity.setPasswordHash(passwordEncoder.encode(password)));
         return userRepository.save(entity);
     }
 
@@ -79,9 +86,24 @@ public class UserService {
         userRepository.delete(entity);
     }
 
-    public record CreateUserCommand(String email, String fullName, UserRole role) {}
+    @Transactional
+    public void changePassword(String email, String currentPassword, String newPassword) {
+        Optional<UserEntity> optional = userRepository.findByEmailIgnoreCase(email);
+        UserEntity user = optional.orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
+        if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+            throw new BadCredentialsException("Invalid credentials");
+        }
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+    }
 
-    public record UpdateUserCommand(String email, String fullName, UserRole role) {}
+    public record CreateUserCommand(String email, String fullName, String password, UserRole role) {}
+
+    public record UpdateUserCommand(String email, String fullName, UserRole role, String password) {
+        public Optional<String> optionalPassword() {
+            return Optional.ofNullable(password);
+        }
+    }
 
     public record UserFilters(String query, UserRole role) {}
 }

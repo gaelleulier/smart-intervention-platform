@@ -1,13 +1,15 @@
 package io.smartip.users;
 
+import io.smartip.security.AuthController;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-@RestControllerAdvice(assignableTypes = UserController.class)
+@RestControllerAdvice(assignableTypes = {UserController.class, AuthController.class})
 class UserExceptionsHandler {
 
     @ExceptionHandler({MethodArgumentNotValidException.class, BindException.class, InvalidUserRoleException.class})
@@ -25,5 +27,10 @@ class UserExceptionsHandler {
     @ExceptionHandler(UserNotFoundException.class)
     ProblemDetail handleNotFound(UserNotFoundException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    ProblemDetail handleUnauthorized(BadCredentialsException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, ex.getMessage());
     }
 }

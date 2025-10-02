@@ -41,7 +41,15 @@ export class UsersService {
   }
 
   update(id: number, payload: UpdateUserPayload): Observable<UserResponseDto> {
-    return this.http.put<UserResponseDto>(`${this.baseUrl}/${id}`, payload);
+    const body: Record<string, unknown> = {
+      email: payload.email,
+      fullName: payload.fullName,
+      role: payload.role
+    };
+    if (payload.password && payload.password.trim().length > 0) {
+      body['password'] = payload.password.trim();
+    }
+    return this.http.put<UserResponseDto>(`${this.baseUrl}/${id}`, body);
   }
 
   delete(id: number): Observable<void> {

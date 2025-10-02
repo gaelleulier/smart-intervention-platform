@@ -9,10 +9,10 @@ A modern web platform to orchestrate field interventions (work orders, schedulin
 ## Architecture
 
 ```
-+-----------------+        REST        +----------------------+         +----------------+
-|  Angular (SPA)  |  <-------------->  |  Spring Boot (API)   |  <----> |  Postgres 16   |
-|  http://:4200   |                    |  http://localhost:8080|        |  Docker (dev)  |
-+-----------------+                    +----------------------+         +----------------+
++-----------------+        REST        +-----------------------+         +----------------+
+|  Angular (SPA)  |  <-------------->  |  Spring Boot (API)    |  <----> |  Postgres 16   |
+|  http://:4200   |                    |  http://localhost:8080|         |  Docker (dev)  |
++-----------------+                    +-----------------------+         +----------------+
 ```
 
 * **Frontend**: Angular (TypeScript), dev server with proxy to `/api`.
@@ -137,7 +137,7 @@ make frontend-run
 # Equivalent: cd frontend && npm install && npm run start
 ```
 
-Open the UI: `http://localhost:4200`.
+Open the UI: `http://localhost:4200` (you will be redirected to the login screen).
 
 ---
 
@@ -173,7 +173,7 @@ db-logs        # (optional) Tail Postgres container logs
 ## Database & Migrations
 
 * Migrations live in `backend/src/main/resources/db/migration` and are applied by **Flyway** on backend startup.
-* Current baseline creates table `demo` and seeds one row (`hello`).
+* Current scripts provision the `users` table (unique email, password hash, roles) and seed a bootstrap administrator.
 
 Inspect from the container:
 
@@ -188,11 +188,22 @@ make db-cli
 
 ## Users Module (MVP)
 
-* **Backend API** (`/api/users`): supports pagination (`page`, `size`), search (`query` matches email/full name), and role filtering (`role=ADMIN|DISPATCHER|TECH`) alongside full CRUD endpoints.
-* **Frontend UI**: open `http://localhost:4200/users` to manage accounts (list, filter, create, edit, delete). The UI consumes the backend API through the dev proxy (`/api`).
-* Validation and errors: API returns RFC 7807 `ProblemDetail` payloads; UI surfaces them in-page for fast troubleshooting.
+* **Backend API** (`/api/users`): supports pagination (`page`, `size`), search (`query` matches email/full name), and role filtering (`role=ADMIN|DISPATCHER|TECH`) alongside full CRUD endpoints. Creation and updates require a password (min. 8 characters including letters and digits).
+* **Frontend UI**: sign in at `http://localhost:4200/login`, then manage accounts at `http://localhost:4200/users` (list, filter, create, edit, delete). A “Change your password” panel updates the currently logged-in user and forces re-authentication.
+* Validation and errors: API returns RFC 7807 `ProblemDetail` payloads; the UI surfaces any backend error inline for faster troubleshooting.
 
 ---
+
+## Security
+
+* Authentication uses stateless JWT tokens (`Authorization: Bearer <token>`). Obtain a token via `POST /api/auth/login` or the `/login` form.
+* The bootstrap administrator (`admin@sip.local` / `Admin123!`) is provisioned by Flyway; update this password immediately outside local development.
+* The signing secret comes from `JWT_SECRET` (see `.env.example`). Provide it through a secret store (Vault, GitLab protected variables, Kubernetes secrets, etc.) and rotate it whenever you want to invalidate existing tokens.
+* In GitLab CI, declare `JWT_SECRET` as a protected/masked variable so pipelines can sign tokens without exposing the key.
+* `POST /api/auth/change-password` lets an authenticated user change their own password; the client logs out afterwards to require a fresh login.
+* Access rules:
+  * Every `/api/users/**` endpoint requires a valid JWT.
+  * `POST/PUT/DELETE /api/users/**` remain restricted to users with the `ADMIN` role.
 
 ## Health Endpoints
 

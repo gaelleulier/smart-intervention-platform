@@ -14,3 +14,9 @@ management:
     web:
       exposure:
         include: "health,info"
+
+security:
+  jwt:
+    secret: ${JWT_SECRET:J7qqEwYDpp8tEX6gg5zt8BaHtQWN6tAUK0oEvSUVOb0=}
+    issuer: smart-intervention-platform
+    expiration: PT1H

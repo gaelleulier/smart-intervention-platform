@@ -1,6 +1,7 @@
 package io.smartip.domain;
 
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
@@ -11,4 +12,6 @@ public interface UserRepository extends JpaRepository<UserEntity, Long>, JpaSpec
     boolean existsByEmailIgnoreCaseAndIdNot(String email, Long id);
 
     List<UserEntity> findAllByOrderByIdAsc();
+
+    Optional<UserEntity> findByEmailIgnoreCase(String email);
 }

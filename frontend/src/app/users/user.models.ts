@@ -26,6 +26,7 @@ export interface ListUsersParams {
 export interface CreateUserPayload {
   email: string;
   fullName: string;
+  password: string;
   role?: UserRole;
 }
 
@@ -33,4 +34,5 @@ export interface UpdateUserPayload {
   email: string;
   fullName: string;
   role: UserRole;
+  password?: string;
 }
