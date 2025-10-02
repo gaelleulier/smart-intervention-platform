@@ -1,6 +1,5 @@
 import { TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
-import { Buffer } from 'node:buffer';
 
 import { AuthService } from './auth.service';
 
@@ -18,9 +17,25 @@ const storageFactory = () => {
   } as Storage;
 };
 
+declare const Buffer:
+  | undefined
+  | {
+      from(input: string, encoding: string): { toString(encoding: string): string };
+    };
+
+const encodeBase64 = (value: string): string => {
+  if (typeof btoa === 'function') {
+    return btoa(value);
+  }
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(value, 'utf-8').toString('base64');
+  }
+  throw new Error('No base64 encoder available');
+};
+
 const createToken = (payload: Record<string, unknown>): string => {
-  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' }), 'utf-8').toString('base64');
-  const body = Buffer.from(JSON.stringify(payload), 'utf-8').toString('base64');
+  const header = encodeBase64(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const body = encodeBase64(JSON.stringify(payload));
   return `${header}.${body}.signature`;
 };
 
