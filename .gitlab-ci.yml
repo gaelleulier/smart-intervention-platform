@@ -62,7 +62,7 @@ frontend:test:
     - npm config set cache .npm --global
   script:
     - npm ci
-    - npm run test -- --watch=false --code-coverage
+    - npm run test -- --watch=false --code-coverage --browsers=ChromeHeadlessNoSandbox
     - npm run build -- --configuration=development
   artifacts:
     when: always
