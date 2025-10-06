@@ -1,0 +1,216 @@
+<section class="users">
+  <header class="users__header">
+    <div>
+      <h2>Users</h2>
+      <p>Manage user accounts for the intervention platform.</p>
+    </div>
+    <div class="header__actions">
+      <span class="badge" *ngIf="activeRole() as role">{{ role }}</span>
+      <button type="button" class="button button--ghost" (click)="onRefresh()" [disabled]="loading()">
+        Refresh
+      </button>
+      <button type="button" class="button button--ghost" (click)="logout()">Logout</button>
+    </div>
+  </header>
+
+  <section class="card filters">
+    <form class="filters__form" [formGroup]="filtersForm" (ngSubmit)="onFilterSubmit()">
+      <label class="field">
+        <span>Search</span>
+        <input type="search" formControlName="query" placeholder="Email or full name" />
+      </label>
+      <label class="field">
+        <span>Role</span>
+        <select formControlName="role">
+          <option [ngValue]="''">All</option>
+          <option *ngFor="let role of roles" [ngValue]="role">{{ role }}</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Page size</span>
+        <select formControlName="size">
+          <option [ngValue]="10">10</option>
+          <option [ngValue]="20">20</option>
+          <option [ngValue]="50">50</option>
+        </select>
+      </label>
+      <div class="filters__actions">
+        <button type="submit" class="button" [disabled]="loading()">Apply</button>
+        <button type="button" class="button button--ghost" (click)="onResetFilters()" [disabled]="loading()">
+          Reset
+        </button>
+      </div>
+    </form>
+  </section>
+
+  <section class="card edit" *ngIf="editingUser() as user">
+    <div class="edit__header">
+      <h3>Edit user</h3>
+      <button type="button" class="button button--ghost" (click)="cancelEdit()" [disabled]="updating()">
+        Cancel
+      </button>
+    </div>
+    <ng-container *ngIf="canEditUser(user)">
+      <form class="edit__form" [formGroup]="editForm" (ngSubmit)="onUpdateUser()">
+        <label class="field">
+          <span>Email</span>
+          <input type="email" formControlName="email" />
+        </label>
+        <label class="field">
+          <span>Full name</span>
+          <input type="text" formControlName="fullName" />
+        </label>
+        <label class="field">
+          <span>New password (optional)</span>
+          <input type="password" formControlName="password" autocomplete="new-password" />
+        </label>
+        <label class="field">
+          <span>Role</span>
+          <select formControlName="role">
+            <option *ngFor="let role of roles" [ngValue]="role">{{ role }}</option>
+          </select>
+        </label>
+        <div class="edit__meta">
+          <span>Created {{ user.createdAt | date: 'medium' }}</span>
+        </div>
+        <div class="edit__actions" *ngIf="isAdmin()">
+          <button type="submit" class="button" [disabled]="updating()">Save changes</button>
+        </div>
+      </form>
+
+      <section class="password" *ngIf="isSelf(user)">
+        <h4>Change your password</h4>
+        <p class="password__hint">
+          Update your credentials. You will be redirected to the login screen afterwards.
+        </p>
+        <form class="password__form" [formGroup]="changePasswordForm" (ngSubmit)="onChangePassword()">
+          <label class="field">
+            <span>Current password</span>
+            <input type="password" formControlName="currentPassword" autocomplete="current-password" />
+          </label>
+          <label class="field">
+            <span>New password</span>
+            <input type="password" formControlName="newPassword" autocomplete="new-password" />
+          </label>
+          <label class="field">
+            <span>Confirm password</span>
+            <input type="password" formControlName="confirmPassword" autocomplete="new-password" />
+          </label>
+          <div *ngIf="changePasswordError() as err" class="alert alert--error">{{ err }}</div>
+          <div *ngIf="changePasswordSuccess()" class="alert alert--success">
+            Password updated. Please log in again.
+          </div>
+          <div class="password__actions">
+            <button type="submit" class="button" [disabled]="changingPassword()">Update password</button>
+          </div>
+        </form>
+      </section>
+    </ng-container>
+  </section>
+
+  <section class="card list">
+    <div *ngIf="error() as err" class="alert alert--error">{{ err }}</div>
+    <div *ngIf="loading()" class="loader">Loading users…</div>
+
+    <table *ngIf="!loading() && page() as pageData; else emptyState">
+      <thead>
+        <tr>
+          <th scope="col">Email</th>
+          <th scope="col">Full name</th>
+          <th scope="col">Role</th>
+          <th scope="col">Created</th>
+          <th scope="col" class="col-actions">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let user of pageData.content">
+          <td>{{ user.email }}</td>
+          <td>{{ user.fullName }}</td>
+          <td><span class="pill" [attr.data-role]="user.role">{{ user.role }}</span></td>
+          <td>{{ user.createdAt | date: 'medium' }}</td>
+          <td class="col-actions">
+            <button
+              type="button"
+              class="button button--ghost"
+              (click)="startEdit(user)"
+              *ngIf="canEditUser(user)"
+              [disabled]="updating()"
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              class="button button--danger"
+              (click)="onDeleteUser(user)"
+              *ngIf="canDeleteUser(user)"
+              [disabled]="deletingId() === user.id"
+            >
+              Delete
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <ng-template #emptyState>
+      <div class="empty" *ngIf="page()?.totalElements === 0 && !loading()">No users match your filters.</div>
+    </ng-template>
+
+    <div class="list__create" *ngIf="isAdmin()">
+      <button
+        type="button"
+        class="button button--circle"
+        (click)="showingCreate() ? cancelCreate() : startCreate()"
+        [attr.aria-label]="showingCreate() ? 'Cancel user creation' : 'Create user'"
+        [disabled]="saving()"
+      >
+        {{ showingCreate() ? '×' : '+' }}
+      </button>
+      <span *ngIf="showingCreate()">Creating a new user...</span>
+    </div>
+
+    <footer class="pagination" *ngIf="page() as pageData">
+      <button type="button" class="button button--ghost" (click)="changePage(-1)" [disabled]="pageData.page === 0 || loading()">
+        Previous
+      </button>
+      <span>Page {{ pageData.page + 1 }} / {{ pageData.totalPages || 1 }} • {{ pageData.totalElements }} users</span>
+      <button
+        type="button"
+        class="button button--ghost"
+        (click)="changePage(1)"
+        [disabled]="pageData.page >= pageData.totalPages - 1 || loading()"
+      >
+        Next
+      </button>
+    </footer>
+
+  </section>
+
+  <section class="card create" *ngIf="isAdmin() && showingCreate()">
+    <h3>Create user</h3>
+    <form class="create__form" [formGroup]="createForm" (ngSubmit)="onCreateUser()">
+      <label class="field">
+        <span>Email</span>
+        <input type="email" formControlName="email" placeholder="user@example.com" />
+      </label>
+      <label class="field">
+        <span>Full name</span>
+        <input type="text" formControlName="fullName" placeholder="First Last" />
+      </label>
+      <label class="field">
+        <span>Password</span>
+        <input type="password" formControlName="password" placeholder="Strong password" autocomplete="new-password" />
+      </label>
+      <label class="field">
+        <span>Role</span>
+        <select formControlName="role">
+          <option *ngFor="let role of roles" [ngValue]="role">{{ role }}</option>
+        </select>
+      </label>
+      <div class="create__actions">
+        <button type="button" class="button button--ghost" (click)="cancelCreate()" [disabled]="saving()">Cancel</button>
+        <button type="submit" class="button" [disabled]="saving()">Create</button>
+      </div>
+    </form>
+  </section>
+</section>

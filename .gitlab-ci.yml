@@ -1,0 +1,137 @@
+stages: [test, build]
+
+# =====================
+# Backend — TEST
+# =====================
+backend:test:
+  stage: test
+  image: maven:3.9-eclipse-temurin-21
+  services:
+    - name: postgres:16-alpine
+      alias: postgres
+      variables:
+        POSTGRES_DB: sip_db
+        POSTGRES_USER: sip_user
+        POSTGRES_PASSWORD: sip_password
+  variables:
+    MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
+    SPRING_PROFILES_ACTIVE: "dev"
+    POSTGRES_DB: "sip_db"
+    POSTGRES_USER: "sip_user"
+    POSTGRES_PASSWORD: "sip_password"
+    POSTGRES_HOST: "postgres"
+    POSTGRES_PORT: "5432"
+  cache:
+    key: maven-${CI_COMMIT_REF_SLUG}
+    policy: pull-push
+    paths:
+      - backend/.m2/repository
+  before_script:
+    - apt-get update && apt-get install -y postgresql-client && rm -rf /var/lib/apt/lists/*
+    - cd backend
+    - mkdir -p .m2/repository
+    - ./mvnw -v
+    - until pg_isready -h "$POSTGRES_HOST" -p "$POSTGRES_PORT"; do echo "Waiting for Postgres..."; sleep 2; done
+  script:
+    - ./mvnw -B test
+  artifacts:
+    when: always
+    reports:
+      junit: backend/target/surefire-reports/*.xml
+  rules:
+    - exists:
+        - backend/pom.xml
+
+# =====================
+# Frontend — TEST (lint/build light)
+# =====================
+frontend:test:
+  stage: test
+  image: node:22
+  variables:
+    CHROME_BIN: "/usr/bin/chromium"
+  cache:
+    key: npm-${CI_COMMIT_REF_SLUG}
+    policy: pull-push
+    paths:
+      - frontend/.npm/
+  before_script:
+    - apt-get update && apt-get install -y chromium && rm -rf /var/lib/apt/lists/*
+    - cd frontend
+    - node -v && npm -v
+    - npm config set cache .npm --global
+  script:
+    - npm ci
+    - npm run test -- --watch=false --code-coverage --browsers=ChromeHeadlessNoSandbox
+    - npm run build -- --configuration=development
+  artifacts:
+    when: always
+    paths:
+      - frontend/dist/
+      - frontend/coverage/
+    expire_in: 1 week
+  rules:
+    - exists:
+        - frontend/package.json
+        - frontend/angular.json
+
+# =====================
+# Backend — BUILD (jar)
+# =====================
+backend:build:
+  stage: build
+  image: maven:3.9-eclipse-temurin-21
+  needs: ["backend:test"]
+  variables:
+    MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
+  cache:
+    key: maven-${CI_COMMIT_REF_SLUG}
+    policy: pull-push
+    paths:
+      - backend/.m2/repository
+  before_script:
+    - cd backend
+  script:
+    - ./mvnw -q -DskipTests package
+  artifacts:
+    paths:
+      - backend/target/*.jar
+    expire_in: 1 week
+  rules:
+    - exists:
+        - backend/pom.xml
+
+# =====================
+# Frontend — BUILD (prod dist)
+# =====================
+frontend:build:
+  stage: build
+  image: node:22
+  needs: ["frontend:test"]
+  cache:
+    key: npm-${CI_COMMIT_REF_SLUG}
+    policy: pull-push
+    paths:
+      - frontend/.npm/
+  before_script:
+    - cd frontend
+    - npm config set cache .npm --global
+  script:
+    - npm ci --prefer-offline
+    - npm run build -- --configuration=production
+  artifacts:
+    paths:
+      - frontend/dist/
+    expire_in: 1 week
+  rules:
+    - exists:
+        - frontend/package.json
+        - frontend/angular.json
+
+# =====================
+# Workflow rules
+# =====================
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
