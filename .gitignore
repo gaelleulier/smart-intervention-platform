@@ -75,3 +75,8 @@ logs/
 *.pid
 tmp/
 temp/
+
+# =========================
+# AI Assistant
+# =========================
+AI_DEV_LOG.md
