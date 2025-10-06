@@ -17,6 +17,7 @@ export class AuthService {
   private readonly tokenStorageKey = 'sip.jwt';
   private readonly tokenSignal = signal<string | null>(null);
   private readonly roleSignal = signal<string | null>(null);
+  private readonly emailSignal = signal<string | null>(null);
   private readonly expirySignal = signal<number | null>(null);
   private readonly http = inject(HttpClient);
   private logoutTimer: ReturnType<typeof setTimeout> | null = null;
@@ -40,6 +41,10 @@ export class AuthService {
 
   role(): string | null {
     return this.roleSignal();
+  }
+
+  email(): string | null {
+    return this.emailSignal();
   }
 
   isAuthenticated(): boolean {
@@ -70,6 +75,7 @@ export class AuthService {
     }
     this.tokenSignal.set(null);
     this.roleSignal.set(null);
+    this.emailSignal.set(null);
     this.expirySignal.set(null);
     if (typeof window !== 'undefined' && window.localStorage) {
       window.localStorage.removeItem(this.tokenStorageKey);
@@ -80,9 +86,11 @@ export class AuthService {
     this.tokenSignal.set(token);
     const decoded = this.decode(token);
     const role = decoded ? decoded['role'] : null;
+    const subject = decoded ? decoded['sub'] : null;
     const expValue = decoded ? decoded['exp'] : null;
     const exp = typeof expValue === 'number' ? expValue * 1000 : null;
     this.roleSignal.set(typeof role === 'string' ? role : null);
+    this.emailSignal.set(typeof subject === 'string' ? subject : null);
     this.expirySignal.set(exp);
     this.scheduleAutoLogout(exp);
     if (typeof window !== 'undefined' && window.localStorage) {

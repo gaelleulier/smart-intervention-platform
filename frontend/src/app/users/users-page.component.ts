@@ -78,6 +78,9 @@ export class UsersPageComponent {
   protected readonly currentPage = this._currentPage;
   protected readonly editingUser = signal<UserResponseDto | null>(null);
   protected readonly activeRole = computed(() => this.auth.role());
+  protected readonly currentUserEmail = computed(() => this.auth.email());
+  protected readonly isAdmin = computed(() => this.activeRole() === 'ADMIN');
+  protected readonly showingCreate = signal(false);
 
   constructor() {
     if (this.isBrowser) {
@@ -124,6 +127,9 @@ export class UsersPageComponent {
   }
 
   async onCreateUser(): Promise<void> {
+    if (!this.isAdmin()) {
+      return;
+    }
     if (this.createForm.invalid || this.saving()) {
       this.createForm.markAllAsTouched();
       return;
@@ -139,7 +145,8 @@ export class UsersPageComponent {
           role: payload.role as UserRole
         })
       );
-      this.createForm.reset({ email: '', fullName: '', password: '', role: 'TECH' });
+      this.resetCreateForm();
+      this.showingCreate.set(false);
       await this.loadUsers(0);
     } catch (error) {
       this.error.set(this.describeError(error));
@@ -149,23 +156,59 @@ export class UsersPageComponent {
   }
 
   startEdit(user: UserResponseDto): void {
+    if (!this.canEditUser(user)) {
+      return;
+    }
     this.editingUser.set(user);
+    this.editForm.enable({ emitEvent: false });
+    if (!this.isAdmin()) {
+      this.editForm.get('email')?.disable({ emitEvent: false });
+      this.editForm.get('fullName')?.disable({ emitEvent: false });
+      this.editForm.get('role')?.disable({ emitEvent: false });
+      this.editForm.get('password')?.disable({ emitEvent: false });
+    }
     this.editForm.setValue({
       email: user.email,
       fullName: user.fullName,
       role: user.role,
       password: ''
     });
+    this.changePasswordForm.reset({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    this.changePasswordError.set(null);
+    this.changePasswordSuccess.set(false);
   }
 
   cancelEdit(): void {
     this.editingUser.set(null);
     this.editForm.reset({ email: '', fullName: '', role: 'TECH', password: '' });
+    this.editForm.enable({ emitEvent: false });
+    this.changePasswordForm.reset({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    this.changePasswordError.set(null);
+    this.changePasswordSuccess.set(false);
+  }
+
+  startCreate(): void {
+    if (!this.isAdmin()) {
+      return;
+    }
+    this.resetCreateForm();
+    this.showingCreate.set(true);
+  }
+
+  cancelCreate(): void {
+    if (!this.showingCreate()) {
+      return;
+    }
+    this.resetCreateForm();
+    this.showingCreate.set(false);
   }
 
   async onUpdateUser(): Promise<void> {
     const target = this.editingUser();
     if (!target) {
+      return;
+    }
+    if (!this.isAdmin()) {
       return;
     }
     if (this.editForm.invalid || this.updating()) {
@@ -193,7 +236,7 @@ export class UsersPageComponent {
   }
 
   async onDeleteUser(user: UserResponseDto): Promise<void> {
-    if (this.deletingId() !== null) {
+    if (!this.isAdmin() || this.deletingId() !== null) {
       return;
     }
     const confirmed = window.confirm(`Delete ${user.email}?`);
@@ -230,6 +273,10 @@ export class UsersPageComponent {
   }
 
   async onChangePassword(): Promise<void> {
+    const target = this.editingUser();
+    if (!target || !this.isSelf(target)) {
+      return;
+    }
     if (this.changePasswordForm.invalid || this.changingPassword()) {
       this.changePasswordForm.markAllAsTouched();
       return;
@@ -259,6 +306,28 @@ export class UsersPageComponent {
     this.cancelEdit();
     this.page.set(null);
     void this.router.navigate(['/login']);
+  }
+
+  protected canEditUser(user: UserResponseDto): boolean {
+    if (this.isAdmin()) {
+      return true;
+    }
+    return this.isSelf(user);
+  }
+
+  protected canDeleteUser(user: UserResponseDto): boolean {
+    return this.isAdmin();
+  }
+
+  protected isSelf(user: UserResponseDto): boolean {
+    const email = this.currentUserEmail();
+    return !!email && user.email.toLowerCase() === email.toLowerCase();
+  }
+
+  private resetCreateForm(): void {
+    this.createForm.reset({ email: '', fullName: '', password: '', role: 'TECH' });
+    this.createForm.markAsPristine();
+    this.createForm.markAsUntouched();
   }
 
   protected describeError(error: unknown): string {
