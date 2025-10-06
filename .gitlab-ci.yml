@@ -23,13 +23,17 @@ backend:test:
     POSTGRES_PORT: "5432"
   cache:
     key: maven-${CI_COMMIT_REF_SLUG}
+    policy: pull-push
     paths:
       - backend/.m2/repository
   before_script:
+    - apt-get update && apt-get install -y postgresql-client && rm -rf /var/lib/apt/lists/*
     - cd backend
+    - mkdir -p .m2/repository
     - ./mvnw -v
+    - until pg_isready -h "$POSTGRES_HOST" -p "$POSTGRES_PORT"; do echo "Waiting for Postgres..."; sleep 2; done
   script:
-    - ./mvnw -q test
+    - ./mvnw -B test
   artifacts:
     when: always
     reports:
@@ -44,21 +48,27 @@ backend:test:
 frontend:test:
   stage: test
   image: node:22
+  variables:
+    CHROME_BIN: "/usr/bin/chromium"
   cache:
     key: npm-${CI_COMMIT_REF_SLUG}
+    policy: pull-push
     paths:
       - frontend/.npm/
   before_script:
+    - apt-get update && apt-get install -y chromium && rm -rf /var/lib/apt/lists/*
     - cd frontend
     - node -v && npm -v
     - npm config set cache .npm --global
   script:
     - npm ci
+    - npm run test -- --watch=false --code-coverage --browsers=ChromeHeadlessNoSandbox
     - npm run build -- --configuration=development
   artifacts:
     when: always
     paths:
       - frontend/dist/
+      - frontend/coverage/
     expire_in: 1 week
   rules:
     - exists:
@@ -76,6 +86,7 @@ backend:build:
     MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
   cache:
     key: maven-${CI_COMMIT_REF_SLUG}
+    policy: pull-push
     paths:
       - backend/.m2/repository
   before_script:
@@ -99,13 +110,14 @@ frontend:build:
   needs: ["frontend:test"]
   cache:
     key: npm-${CI_COMMIT_REF_SLUG}
+    policy: pull-push
     paths:
       - frontend/.npm/
   before_script:
     - cd frontend
     - npm config set cache .npm --global
   script:
-    - npm ci
+    - npm ci --prefer-offline
     - npm run build -- --configuration=production
   artifacts:
     paths:

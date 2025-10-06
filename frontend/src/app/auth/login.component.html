@@ -1,0 +1,18 @@
+<section class="login">
+  <h1>Sign in</h1>
+  <p class="login__subtitle">Authenticate to manage users.</p>
+  <form class="login__form" [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+    <label class="field">
+      <span>Email</span>
+      <input type="email" formControlName="email" placeholder="admin@sip.local" autocomplete="username" />
+    </label>
+    <label class="field">
+      <span>Password</span>
+      <input type="password" formControlName="password" placeholder="Password" autocomplete="current-password" />
+    </label>
+    <div *ngIf="error() as err" class="alert alert--error">{{ err }}</div>
+    <div class="login__actions">
+      <button type="submit" class="button" [disabled]="loading()">Log in</button>
+    </div>
+  </form>
+</section>

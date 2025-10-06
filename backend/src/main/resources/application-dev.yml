@@ -6,7 +6,7 @@ spring:
     hikari:
       maximum-pool-size: 5
   flyway:
-    locations: classpath:db/migration,filesystem:../db/migrations
+    locations: classpath:db/migration
     baseline-on-migrate: true
 logging:
   level:
