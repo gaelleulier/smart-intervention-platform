@@ -20,3 +20,7 @@ security:
     secret: ${JWT_SECRET:J7qqEwYDpp8tEX6gg5zt8BaHtQWN6tAUK0oEvSUVOb0=}
     issuer: smart-intervention-platform
     expiration: PT1H
+
+dashboard:
+  analytics:
+    refresh-interval: 300000 # 5 minutes in milliseconds

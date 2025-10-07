@@ -51,7 +51,9 @@ export class InterventionsPageComponent implements OnDestroy {
     description: [''],
     plannedAt: [this.defaultPlannedAt(), Validators.required],
     assignmentMode: ['MANUAL', Validators.required],
-    technicianId: ['']
+    technicianId: [''],
+    latitude: ['', [Validators.min(-90), Validators.max(90)]],
+    longitude: ['', [Validators.min(-180), Validators.max(180)]]
   });
 
   protected readonly editForm = this.fb.nonNullable.group({
@@ -59,7 +61,9 @@ export class InterventionsPageComponent implements OnDestroy {
     description: [''],
     plannedAt: ['', Validators.required],
     assignmentMode: ['MANUAL', Validators.required],
-    technicianId: ['']
+    technicianId: [''],
+    latitude: ['', [Validators.min(-90), Validators.max(90)]],
+    longitude: ['', [Validators.min(-180), Validators.max(180)]]
   });
 
   protected readonly page = signal<InterventionsPageResponseDto | null>(null);
@@ -151,7 +155,9 @@ export class InterventionsPageComponent implements OnDestroy {
       description: this.normalizeOptional(formValue.description),
       plannedAt: this.toIsoString(formValue.plannedAt),
       assignmentMode: formValue.assignmentMode as InterventionAssignmentMode,
-      technicianId: this.parseTechnicianId(formValue.technicianId)
+      technicianId: this.parseTechnicianId(formValue.technicianId),
+      latitude: this.parseCoordinate(formValue.latitude),
+      longitude: this.parseCoordinate(formValue.longitude)
     };
     if (payload.assignmentMode === 'AUTO') {
       payload.technicianId = null;
@@ -178,13 +184,23 @@ export class InterventionsPageComponent implements OnDestroy {
       description: intervention.description ?? '',
       plannedAt: this.toLocalDateTimeInput(intervention.plannedAt),
       assignmentMode: intervention.assignmentMode,
-      technicianId: intervention.technician ? String(intervention.technician.id) : ''
+      technicianId: intervention.technician ? String(intervention.technician.id) : '',
+      latitude: intervention.latitude != null ? String(intervention.latitude) : '',
+      longitude: intervention.longitude != null ? String(intervention.longitude) : ''
     });
   }
 
   cancelEdit(): void {
     this.editingIntervention.set(null);
-    this.editForm.reset({ title: '', description: '', plannedAt: '', assignmentMode: 'MANUAL', technicianId: '' });
+    this.editForm.reset({
+      title: '',
+      description: '',
+      plannedAt: '',
+      assignmentMode: 'MANUAL',
+      technicianId: '',
+      latitude: '',
+      longitude: ''
+    });
   }
 
   async onUpdateIntervention(): Promise<void> {
@@ -201,7 +217,9 @@ export class InterventionsPageComponent implements OnDestroy {
       description: this.normalizeOptional(formValue.description),
       plannedAt: this.toIsoString(formValue.plannedAt),
       assignmentMode: formValue.assignmentMode as InterventionAssignmentMode,
-      technicianId: this.parseTechnicianId(formValue.technicianId)
+      technicianId: this.parseTechnicianId(formValue.technicianId),
+      latitude: this.parseCoordinate(formValue.latitude),
+      longitude: this.parseCoordinate(formValue.longitude)
     };
     if (payload.assignmentMode === 'AUTO') {
       payload.technicianId = null;
@@ -387,7 +405,17 @@ export class InterventionsPageComponent implements OnDestroy {
       description: '',
       plannedAt: this.defaultPlannedAt(),
       assignmentMode: 'MANUAL',
-      technicianId: ''
+      technicianId: '',
+      latitude: '',
+      longitude: ''
     });
+  }
+
+  private parseCoordinate(value: string): number | null {
+    if (!value) {
+      return null;
+    }
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
   }
 }

@@ -92,6 +92,8 @@ public class InterventionService {
         entity.setPlannedAt(command.plannedAt());
         entity.setStatus(InterventionStatus.SCHEDULED);
         entity.setAssignmentMode(command.assignmentMode());
+        entity.setLatitude(normalizeCoordinate(command.latitude()));
+        entity.setLongitude(normalizeCoordinate(command.longitude()));
         applyAssignment(entity, command.assignmentMode(), command.technicianId(), command.plannedAt());
         return initializeTechnician(interventionRepository.save(entity));
     }
@@ -106,6 +108,8 @@ public class InterventionService {
         entity.setDescription(normalizeDescription(command.description()));
         entity.setPlannedAt(command.plannedAt());
         entity.setAssignmentMode(command.assignmentMode());
+        entity.setLatitude(normalizeCoordinate(command.latitude()));
+        entity.setLongitude(normalizeCoordinate(command.longitude()));
         applyAssignment(entity, command.assignmentMode(), command.technicianId(), command.plannedAt());
         return initializeTechnician(interventionRepository.save(entity));
     }
@@ -210,6 +214,16 @@ public class InterventionService {
                 .orElse(null);
     }
 
+    private java.math.BigDecimal normalizeCoordinate(Double value) {
+        if (value == null) {
+            return null;
+        }
+        if (Double.isNaN(value) || Double.isInfinite(value)) {
+            return null;
+        }
+        return java.math.BigDecimal.valueOf(value);
+    }
+
     private InterventionEntity initializeTechnician(InterventionEntity entity) {
         if (entity.getTechnician() != null) {
             entity.getTechnician().getFullName();
@@ -231,7 +245,9 @@ public class InterventionService {
             String description,
             Instant plannedAt,
             InterventionAssignmentMode assignmentMode,
-            Long technicianId) {
+            Long technicianId,
+            Double latitude,
+            Double longitude) {
 
         public CreateInterventionCommand {
             Objects.requireNonNull(reference, "reference");
@@ -246,7 +262,9 @@ public class InterventionService {
             String description,
             Instant plannedAt,
             InterventionAssignmentMode assignmentMode,
-            Long technicianId) {
+            Long technicianId,
+            Double latitude,
+            Double longitude) {
 
         public UpdateInterventionCommand {
             Objects.requireNonNull(title, "title");

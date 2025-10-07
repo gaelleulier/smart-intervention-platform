@@ -103,6 +103,12 @@
   background: #fff;
 }
 
+.field-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+}
+
 .button {
   display: inline-flex;
   align-items: center;

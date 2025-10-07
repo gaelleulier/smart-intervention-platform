@@ -1,0 +1,107 @@
+<section class="dashboard">
+  <header class="dashboard__header">
+    <div>
+      <h2>Tableau de bord</h2>
+      <p>Suivi temps réel des interventions et de la charge technicien.</p>
+    </div>
+    <button type="button" class="button button--ghost" (click)="refresh()" [disabled]="loading()">
+      Rafraîchir
+    </button>
+  </header>
+
+  <div *ngIf="error() as err" class="alert alert--error">{{ err }}</div>
+
+  <div *ngIf="loading()" class="loader">Chargement du tableau de bord…</div>
+
+  <section class="cards" *ngIf="!loading() && summary() as data">
+    <article class="card kpi">
+      <h3>Total interventions</h3>
+      <p class="kpi__value">{{ data.totalInterventions }}</p>
+      <p class="kpi__meta">
+        Dernière mise à jour : {{ data.lastRefreshedAt ? (data.lastRefreshedAt | date: 'medium') : 'N/A' }}
+      </p>
+    </article>
+    <article class="card kpi" *ngFor="let card of statusKpis">
+      <h3>{{ card.label }}</h3>
+      <p class="kpi__value">{{ summaryValue(data, card.key) }}</p>
+    </article>
+    <article class="card kpi">
+      <h3>Durée moyenne</h3>
+      <p class="kpi__value">
+        {{ data.averageCompletionSeconds ? (data.averageCompletionSeconds / 60 | number: '1.0-0') + ' min' : 'N/A' }}
+      </p>
+    </article>
+    <article class="card kpi">
+      <h3>Taux de validation</h3>
+      <p class="kpi__value">
+        {{ data.validationRatio ? (data.validationRatio | number: '1.0-1') + ' %' : 'N/A' }}
+      </p>
+    </article>
+  </section>
+
+  <section class="card trends" *ngIf="!loading()">
+    <header class="trends__header">
+      <h3>Tendances des statuts</h3>
+      <p>Représentation tabulaire temporaire avant intégration des graphiques.</p>
+    </header>
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Date</th>
+          <th scope="col">Statut</th>
+          <th scope="col">Volume</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let point of statusTrends()">
+          <td>{{ point.date | date: 'mediumDate' }}</td>
+          <td>{{ point.status }}</td>
+          <td>{{ point.count }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card load" *ngIf="!loading()">
+    <header class="load__header">
+      <h3>Charge technicien</h3>
+      <p>Ouvert vs. terminé aujourd'hui.</p>
+    </header>
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Technicien</th>
+          <th scope="col">Email</th>
+          <th scope="col">Ouverts</th>
+          <th scope="col">Terminés (jour)</th>
+          <th scope="col">Durée moyenne</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let tech of technicianLoad()">
+          <td>{{ tech.technicianName }}</td>
+          <td>{{ tech.technicianEmail }}</td>
+          <td>{{ tech.openCount }}</td>
+          <td>{{ tech.completedToday }}</td>
+          <td>{{ tech.averageCompletionSeconds ? (tech.averageCompletionSeconds / 60 | number: '1.0-0') + ' min' : 'N/A' }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card map" *ngIf="!loading()">
+    <header class="map__header">
+      <h3>Carte des interventions</h3>
+      <p>Placeholder pour intégration Leaflet.</p>
+    </header>
+    <div class="map__content">
+      <ul>
+        <li *ngFor="let marker of mapMarkers()">
+          <strong>{{ marker.status }}</strong> — {{ marker.latitude }}, {{ marker.longitude }}
+          (MAJ {{ marker.updatedAt | date: 'short' }})
+        </li>
+        <li *ngIf="mapMarkers().length === 0">Aucune intervention à afficher.</li>
+      </ul>
+    </div>
+  </section>
+</section>

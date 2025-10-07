@@ -13,6 +13,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import java.time.Instant;
 
 @Entity
@@ -51,6 +52,12 @@ public class InterventionEntity {
 
     @Column(name = "validated_at")
     private Instant validatedAt;
+
+    @Column
+    private BigDecimal latitude;
+
+    @Column
+    private BigDecimal longitude;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "technician_id")
@@ -156,6 +163,22 @@ public class InterventionEntity {
 
     public void setValidatedAt(Instant validatedAt) {
         this.validatedAt = validatedAt;
+    }
+
+    public BigDecimal getLatitude() {
+        return latitude;
+    }
+
+    public void setLatitude(BigDecimal latitude) {
+        this.latitude = latitude;
+    }
+
+    public BigDecimal getLongitude() {
+        return longitude;
+    }
+
+    public void setLongitude(BigDecimal longitude) {
+        this.longitude = longitude;
     }
 
     public UserEntity getTechnician() {

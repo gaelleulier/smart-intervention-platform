@@ -19,6 +19,8 @@ public record InterventionResponse(
         Instant validatedAt,
         Instant createdAt,
         Instant updatedAt,
+        Double latitude,
+        Double longitude,
         TechnicianSummary technician) {
 
     public static InterventionResponse fromEntity(InterventionEntity entity) {
@@ -26,6 +28,8 @@ public record InterventionResponse(
         TechnicianSummary technicianSummary = technician != null
                 ? new TechnicianSummary(technician.getId(), technician.getFullName(), technician.getEmail())
                 : null;
+        Double latitude = entity.getLatitude() != null ? entity.getLatitude().doubleValue() : null;
+        Double longitude = entity.getLongitude() != null ? entity.getLongitude().doubleValue() : null;
         return new InterventionResponse(
                 entity.getId(),
                 entity.getReference(),
@@ -39,6 +43,8 @@ public record InterventionResponse(
                 entity.getValidatedAt(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt(),
+                latitude,
+                longitude,
                 technicianSummary);
     }
 
