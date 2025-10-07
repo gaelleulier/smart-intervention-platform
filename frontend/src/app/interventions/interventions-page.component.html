@@ -174,15 +174,17 @@
             >
               Modifier
             </button>
-            <button
-              type="button"
-              class="button"
-              (click)="advanceStatus(item)"
-              *ngIf="nextStatus(item.status) as next"
-              [disabled]="statusUpdatingId() === item.id"
-            >
-              {{ statusLabel(next) }}
-            </button>
+            <ng-container *ngIf="nextStatus(item.status) as next">
+              <button
+                type="button"
+                class="button"
+                (click)="advanceStatus(item)"
+                *ngIf="canAdvanceTo(next)"
+                [disabled]="statusUpdatingId() === item.id"
+              >
+                {{ statusLabel(next) }}
+              </button>
+            </ng-container>
           </td>
         </tr>
       </tbody>

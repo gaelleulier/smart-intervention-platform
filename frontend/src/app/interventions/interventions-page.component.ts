@@ -219,7 +219,7 @@ export class InterventionsPageComponent implements OnDestroy {
 
   async advanceStatus(intervention: InterventionResponseDto): Promise<void> {
     const next = this.nextStatus(intervention.status);
-    if (!next || !this.canProgress || this.statusUpdatingId()) {
+    if (!next || !this.canProgress || this.statusUpdatingId() || !this.canAdvanceTo(next)) {
       return;
     }
     this.statusUpdatingId.set(intervention.id);
@@ -265,6 +265,16 @@ export class InterventionsPageComponent implements OnDestroy {
       default:
         return null;
     }
+  }
+
+  protected canAdvanceTo(nextStatus: InterventionStatus): boolean {
+    if (this.isManager()) {
+      return true;
+    }
+    if (this.isTechnician()) {
+      return nextStatus === 'IN_PROGRESS' || nextStatus === 'COMPLETED';
+    }
+    return false;
   }
 
   protected statusLabel(status: InterventionStatus): string {

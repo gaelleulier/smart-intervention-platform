@@ -75,10 +75,7 @@ public class InterventionController {
             @PathVariable Long id,
             @Valid @RequestBody UpdateInterventionStatusRequest request,
             Authentication authentication) {
-        if (authentication != null
-                && authentication.getAuthorities().stream()
-                        .map(GrantedAuthority::getAuthority)
-                        .anyMatch("ROLE_TECH"::equals)) {
+        if (hasRole(authentication, "ROLE_TECH")) {
             var intervention = interventionService.getIntervention(id);
             if (intervention.getTechnician() == null
                     || !intervention.getTechnician()
@@ -86,7 +83,19 @@ public class InterventionController {
                             .equalsIgnoreCase(authentication.getName())) {
                 throw new InterventionAccessDeniedException(id);
             }
+            if (request.status() == InterventionStatus.VALIDATED) {
+                throw new InterventionAccessDeniedException(id);
+            }
         }
         return InterventionResponse.fromEntity(interventionService.updateStatus(id, request.status()));
+    }
+
+    private boolean hasRole(Authentication authentication, String authority) {
+        if (authentication == null) {
+            return false;
+        }
+        return authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(authority::equals);
     }
 }
