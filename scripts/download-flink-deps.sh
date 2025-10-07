@@ -4,16 +4,24 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LIB_DIR="${ROOT_DIR}/infra/cdc/lib"
 POSTGRES_VERSION="42.7.7"
-JAR_NAME="postgresql-${POSTGRES_VERSION}.jar"
-TARGET="${LIB_DIR}/${JAR_NAME}"
+FLINK_CONNECTOR_VERSION="3.3.0-1.19"
+
+declare -A ARTIFACTS=(
+  ["postgresql-${POSTGRES_VERSION}.jar"]="https://jdbc.postgresql.org/download/postgresql-${POSTGRES_VERSION}.jar"
+  ["flink-sql-connector-kafka-${FLINK_CONNECTOR_VERSION}.jar"]="https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-kafka/${FLINK_CONNECTOR_VERSION}/flink-sql-connector-kafka-${FLINK_CONNECTOR_VERSION}.jar"
+  ["flink-connector-jdbc-${FLINK_CONNECTOR_VERSION}.jar"]="https://repo1.maven.org/maven2/org/apache/flink/flink-connector-jdbc/${FLINK_CONNECTOR_VERSION}/flink-connector-jdbc-${FLINK_CONNECTOR_VERSION}.jar"
+)
 
 mkdir -p "${LIB_DIR}"
 
-if [[ -f "${TARGET}" ]]; then
-  echo "PostgreSQL JDBC driver already present at ${TARGET}"
-  exit 0
-fi
-
-echo "Downloading PostgreSQL JDBC driver ${POSTGRES_VERSION}..."
-curl -fsSL "https://jdbc.postgresql.org/download/${JAR_NAME}" -o "${TARGET}"
-echo "Driver saved to ${TARGET}"
+for filename in "${!ARTIFACTS[@]}"; do
+  url="${ARTIFACTS[${filename}]}"
+  target="${LIB_DIR}/${filename}"
+  if [[ -f "${target}" ]]; then
+    echo "Dependency already present: ${target}"
+    continue
+  fi
+  echo "Downloading ${filename}..."
+  curl -fsSL "${url}" -o "${target}"
+  echo "Saved to ${target}"
+done

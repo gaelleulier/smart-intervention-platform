@@ -105,7 +105,7 @@ This document defines the architectural guardrails for the Smart Intervention Pl
 - **Analytics Pipeline**:
   - Change Data Capture from `interventions` table via Debezium connector (Postgres slot) -> Kafka topic `sip.interventions` with payload flattened through `ExtractNewRecordState`.
   - Local developer stack ships Zookeeper, Kafka, Debezium Connect, Flink (job/task manager) and Kafka UI (`docker-compose.dev.yml`). Kafka Connect configs live under `infra/cdc/connectors` and are registered via `scripts/register-connectors.sh`.
-  - Stream processing is handled by a PyFlink job (`infra/cdc/flink/intervention_metrics_job.py`) submitted to the Flink cluster (`scripts/submit-flink-job.sh`). The job performs upserts into PostgreSQL analytics tables (`analytics.intervention_daily_metrics`, `analytics.intervention_technician_load`, `analytics.intervention_geo_view`).
+  - Stream processing is handled by a Flink SQL job template (`infra/cdc/flink/analytics_job.sql`) submitted via `scripts/submit-flink-job.sh`. The job performs upserts into PostgreSQL analytics tables (`analytics.intervention_daily_metrics`, `analytics.intervention_technician_load`, `analytics.intervention_geo_view`).
   - Nightly batch (optional) replays aggregates to correct drift; orchestrated via Airflow using the same processing DAG. Spring fallback `/api/dashboard/refresh` delegates to `AnalyticsAggregationService` (disabled by default) for manual recompaction.
   - Schema:
     - `analytics.intervention_daily_metrics`: columns (`date`, `status`, `count`, `avg_completion_seconds`, `validation_ratio`).

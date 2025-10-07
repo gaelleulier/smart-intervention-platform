@@ -8,7 +8,7 @@ This directory contains the resources required to run the local Change Data Capt
 
 - **Zookeeper** + **Kafka** (`kafka:9092`, `localhost:29092`) – event backbone.
 - **Kafka Connect (Debezium)** (`http://localhost:8083`) – streams Postgres changes to Kafka.
-- **Flink Job/Task Managers** (`http://localhost:8081`) – runs the aggregation job that fills `analytics.*` tables.
+- **Flink Job/Task Managers** (`http://localhost:8081`) – run the Flink SQL aggregation job that fills `analytics.*` tables.
 - **Kafka UI** (`http://localhost:8085`) – inspect topics, consumer groups and registered connectors.
 
 ## Usage
@@ -26,7 +26,7 @@ This directory contains the resources required to run the local Change Data Capt
    ```bash
    ./scripts/download-flink-deps.sh
    ```
-4. Submit the PyFlink job that keeps analytics tables in sync:
+4. Submit the Flink SQL job that keeps analytics tables in sync:
    ```bash
    ./scripts/submit-flink-job.sh
    ```
@@ -42,4 +42,3 @@ For demos, you can load open datasets such as:
 - **European emergency interventions** posted by cities on data.gouv.fr.
 
 Convert columns to match the `interventions` schema (reference, title, planned/completed dates, technician, latitude/longitude) and insert them via the REST API or bulk SQL. The CDC pipeline will automatically propagate them to analytics tables and Kafka topics.
-

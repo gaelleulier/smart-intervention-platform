@@ -154,7 +154,7 @@ To enable the near real-time dashboard pipeline (Debezium → Kafka → Flink):
    ```bash
    ./scripts/register-connectors.sh
    ```
-4. **Submit the Flink job:**
+4. **Submit the Flink SQL job (credentials are read from `.env`):**
    ```bash
    ./scripts/submit-flink-job.sh
    ```
