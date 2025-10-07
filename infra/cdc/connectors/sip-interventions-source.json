@@ -1,0 +1,33 @@
+{
+  "name": "sip-interventions-source",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "database.hostname": "db",
+    "database.port": "5432",
+    "database.user": "${POSTGRES_USER}",
+    "database.password": "${POSTGRES_PASSWORD}",
+    "database.dbname": "${POSTGRES_DB}",
+    "plugin.name": "pgoutput",
+    "slot.name": "sip_interventions_slot",
+    "publication.name": "sip_interventions_publication",
+    "topic.prefix": "sip",
+    "table.include.list": "public.interventions",
+    "decimal.handling.mode": "double",
+    "time.precision.mode": "connect",
+    "provide.transaction.metadata": "false",
+    "schema.history.internal": "io.debezium.storage.file.history.FileSchemaHistory",
+    "schema.history.internal.file.filename": "/tmp/schema-history.dat",
+    "heartbeat.interval.ms": "10000",
+    "include.schema.changes": "false",
+    "transforms": "unwrap",
+    "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+    "transforms.unwrap.add.headers": "op",
+    "transforms.unwrap.add.fields": "op,source.ts_ms",
+    "transforms.unwrap.delete.handling.mode": "rewrite",
+    "transforms.unwrap.drop.tombstones": "true",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false",
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "key.converter.schemas.enable": "false"
+  }
+}

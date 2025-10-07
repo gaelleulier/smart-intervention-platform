@@ -21,14 +21,17 @@ public class AnalyticsAggregationService {
     private final JdbcTemplate jdbcTemplate;
     private final DashboardCacheEvictor cacheEvictor;
     private final int historyDays;
+    private final boolean refreshEnabled;
 
     public AnalyticsAggregationService(
             JdbcTemplate jdbcTemplate,
             DashboardCacheEvictor cacheEvictor,
-            @Value("${dashboard.analytics.history-days:14}") int historyDays) {
+            @Value("${dashboard.analytics.history-days:14}") int historyDays,
+            @Value("${dashboard.analytics.refresh-enabled:false}") boolean refreshEnabled) {
         this.jdbcTemplate = jdbcTemplate;
         this.cacheEvictor = cacheEvictor;
         this.historyDays = Math.max(historyDays, 1);
+        this.refreshEnabled = refreshEnabled;
     }
 
     @Transactional
@@ -51,7 +54,11 @@ public class AnalyticsAggregationService {
 
     @Scheduled(fixedDelayString = "${dashboard.analytics.refresh-interval:300000}")
     public void scheduledRefresh() {
-        refreshAnalytics();
+        if (refreshEnabled) {
+            refreshAnalytics();
+        } else {
+            LOGGER.debug("Dashboard analytics scheduler disabled (dashboard.analytics.refresh-enabled=false)");
+        }
     }
 
     private void refreshDailyMetrics(LocalDate from, LocalDate to, Instant refreshedAt) {

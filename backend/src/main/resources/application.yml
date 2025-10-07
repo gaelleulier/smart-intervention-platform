@@ -24,3 +24,4 @@ security:
 dashboard:
   analytics:
     refresh-interval: 300000 # 5 minutes in milliseconds
+    refresh-enabled: false

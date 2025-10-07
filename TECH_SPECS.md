@@ -103,15 +103,16 @@ This document defines the architectural guardrails for the Smart Intervention Pl
   - Responsive layout (desktop: multi-column grid; mobile: stacked cards). Ensure high-contrast color palette for statuses.
 
 - **Analytics Pipeline**:
-  - Change Data Capture from `interventions` table via Debezium connector (Postgres slot) -> Kafka topic `intervention.events`.
-  - Stream processing (Apache Flink or Kafka Streams) computes rolling aggregates (counts, durations, geocoordinates) and writes to PostgreSQL analytics schema (`analytics.intervention_daily_metrics`, `analytics.intervention_geo_view`).
-  - Nightly batch (optional) replays aggregates to correct drift; orchestrated via Airflow using the same processing DAG.
+  - Change Data Capture from `interventions` table via Debezium connector (Postgres slot) -> Kafka topic `sip.interventions` with payload flattened through `ExtractNewRecordState`.
+  - Local developer stack ships Zookeeper, Kafka, Debezium Connect, Flink (job/task manager) and Kafka UI (`docker-compose.dev.yml`). Kafka Connect configs live under `infra/cdc/connectors` and are registered via `scripts/register-connectors.sh`.
+  - Stream processing is handled by a PyFlink job (`infra/cdc/flink/intervention_metrics_job.py`) submitted to the Flink cluster (`scripts/submit-flink-job.sh`). The job performs upserts into PostgreSQL analytics tables (`analytics.intervention_daily_metrics`, `analytics.intervention_technician_load`, `analytics.intervention_geo_view`).
+  - Nightly batch (optional) replays aggregates to correct drift; orchestrated via Airflow using the same processing DAG. Spring fallback `/api/dashboard/refresh` delegates to `AnalyticsAggregationService` (disabled by default) for manual recompaction.
   - Schema:
     - `analytics.intervention_daily_metrics`: columns (`date`, `status`, `count`, `avg_completion_seconds`, `validation_ratio`).
     - `analytics.intervention_technician_load`: (`technician_id`, `open_count`, `completed_today`, `avg_completion_seconds`).
     - `analytics.intervention_geo_view`: (`intervention_id`, `latitude`, `longitude`, `status`, `technician_id`, `planned_at`, `updated_at`).
-  - Materialized views refreshed every 5 minutes to balance freshness vs. cost; expose Postgres view names in README for ops visibility.
-  - `AnalyticsAggregationService` (Spring @Scheduled) recomputes aggregates every 5 minutes and on-demand via `/api/dashboard/refresh`. Long-term, replace with external Flink job once CDC pipeline is deployed.
+  - Materialized views refreshed continuously by the Flink job; expose topic/table mapping in `infra/cdc/README.md` for ops visibility.
+  - `AnalyticsAggregationService` (Spring) remains as an on-demand fallback (`dashboard.analytics.refresh-enabled=false` by default) and powers the `/api/dashboard/refresh` endpoint.
 
 - **Data Quality & Governance**:
   - Enforce presence of geolocation metadata when scheduling interventions (validation on backend & Flyway NOT NULL columns once adoption validated).
