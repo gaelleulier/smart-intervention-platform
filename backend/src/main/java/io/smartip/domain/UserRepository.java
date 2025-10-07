@@ -14,4 +14,6 @@ public interface UserRepository extends JpaRepository<UserEntity, Long>, JpaSpec
     List<UserEntity> findAllByOrderByIdAsc();
 
     Optional<UserEntity> findByEmailIgnoreCase(String email);
+
+    List<UserEntity> findByRoleOrderByIdAsc(UserRole role);
 }

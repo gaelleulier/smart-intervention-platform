@@ -1,0 +1,212 @@
+<section class="interventions">
+  <header class="interventions__header">
+    <div>
+      <h2>Interventions</h2>
+      <p>Planifier, affecter et suivre les interventions terrain.</p>
+    </div>
+    <div class="header__actions">
+      <button type="button" class="button button--ghost" (click)="onRefresh()" [disabled]="loading()">
+        Rafraîchir
+      </button>
+    </div>
+  </header>
+
+  <section class="card filters">
+    <form class="filters__form" [formGroup]="filtersForm" (ngSubmit)="onFilterSubmit()">
+      <label class="field">
+        <span>Recherche</span>
+        <input type="search" formControlName="query" placeholder="Référence ou titre" />
+      </label>
+      <label class="field">
+        <span>Statut</span>
+        <select formControlName="status">
+          <option [ngValue]="''">Tous</option>
+          <option *ngFor="let status of statuses" [ngValue]="status">{{ statusLabel(status) }}</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Affectation</span>
+        <select formControlName="assignmentMode">
+          <option [ngValue]="''">Toutes</option>
+          <option *ngFor="let mode of assignmentModes" [ngValue]="mode">{{ assignmentLabel(mode) }}</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Technicien</span>
+        <select formControlName="technicianId">
+          <option [ngValue]="''">Tous</option>
+          <option *ngFor="let tech of technicians()" [ngValue]="tech.id">{{ tech.fullName }}</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Taille de page</span>
+        <select formControlName="size">
+          <option [ngValue]="10">10</option>
+          <option [ngValue]="20">20</option>
+          <option [ngValue]="50">50</option>
+        </select>
+      </label>
+      <div class="filters__actions">
+        <button type="submit" class="button" [disabled]="loading()">Appliquer</button>
+        <button type="button" class="button button--ghost" (click)="onResetFilters()" [disabled]="loading()">
+          Réinitialiser
+        </button>
+      </div>
+    </form>
+  </section>
+
+  <section class="card create" *ngIf="canManage">
+    <header class="create__header">
+      <h3>Nouvelle intervention</h3>
+      <button type="button" class="button button--ghost" (click)="showingCreate() ? cancelCreate() : startCreate()" [disabled]="saving()">
+        {{ showingCreate() ? 'Fermer' : 'Créer' }}
+      </button>
+    </header>
+    <form *ngIf="showingCreate()" class="create__form" [formGroup]="createForm" (ngSubmit)="onCreateIntervention()">
+      <label class="field">
+        <span>Référence</span>
+        <input type="text" formControlName="reference" placeholder="INT-0001" />
+      </label>
+      <label class="field">
+        <span>Titre</span>
+        <input type="text" formControlName="title" placeholder="Inspection du site" />
+      </label>
+      <label class="field">
+        <span>Description</span>
+        <textarea formControlName="description" rows="3" placeholder="Détails de l'intervention"></textarea>
+      </label>
+      <label class="field">
+        <span>Date planifiée</span>
+        <input type="datetime-local" formControlName="plannedAt" />
+      </label>
+      <label class="field">
+        <span>Mode d'affectation</span>
+        <select formControlName="assignmentMode">
+          <option *ngFor="let mode of assignmentModes" [ngValue]="mode">{{ assignmentLabel(mode) }}</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Technicien</span>
+        <select formControlName="technicianId" [disabled]="createForm.controls.assignmentMode.value === 'AUTO'">
+          <option [ngValue]="''">Non attribué</option>
+          <option *ngFor="let tech of technicians()" [ngValue]="tech.id">{{ tech.fullName }}</option>
+        </select>
+      </label>
+      <div class="create__actions">
+        <button type="submit" class="button" [disabled]="saving()">Enregistrer</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="card edit" *ngIf="editingIntervention() as intervention">
+    <header class="edit__header">
+      <div>
+        <h3>Modifier {{ intervention.reference }}</h3>
+        <span class="edit__meta">Créée le {{ intervention.createdAt | date: 'medium' }}</span>
+      </div>
+      <button type="button" class="button button--ghost" (click)="cancelEdit()" [disabled]="updating()">
+        Annuler
+      </button>
+    </header>
+    <form class="edit__form" [formGroup]="editForm" (ngSubmit)="onUpdateIntervention()">
+      <label class="field">
+        <span>Titre</span>
+        <input type="text" formControlName="title" />
+      </label>
+      <label class="field">
+        <span>Description</span>
+        <textarea formControlName="description" rows="3"></textarea>
+      </label>
+      <label class="field">
+        <span>Date planifiée</span>
+        <input type="datetime-local" formControlName="plannedAt" />
+      </label>
+      <label class="field">
+        <span>Mode d'affectation</span>
+        <select formControlName="assignmentMode">
+          <option *ngFor="let mode of assignmentModes" [ngValue]="mode">{{ assignmentLabel(mode) }}</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Technicien</span>
+        <select formControlName="technicianId" [disabled]="editForm.controls.assignmentMode.value === 'AUTO'">
+          <option [ngValue]="''">Non attribué</option>
+          <option *ngFor="let tech of technicians()" [ngValue]="tech.id">{{ tech.fullName }}</option>
+        </select>
+      </label>
+      <div class="edit__actions">
+        <button type="submit" class="button" [disabled]="updating()">Mettre à jour</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="card list">
+    <div *ngIf="error() as err" class="alert alert--error">{{ err }}</div>
+    <div *ngIf="loading()" class="loader">Chargement des interventions…</div>
+
+    <table *ngIf="!loading() && page() as pageData; else emptyState">
+      <thead>
+        <tr>
+          <th scope="col">Référence</th>
+          <th scope="col">Titre</th>
+          <th scope="col">Planifiée</th>
+          <th scope="col">Technicien</th>
+          <th scope="col">Affectation</th>
+          <th scope="col">Statut</th>
+          <th scope="col" class="col-actions">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let item of pageData.content; trackBy: trackById">
+          <td>{{ item.reference }}</td>
+          <td>{{ item.title }}</td>
+          <td>{{ item.plannedAt | date: 'medium' }}</td>
+          <td>{{ item.technician?.fullName || 'Non attribué' }}</td>
+          <td>{{ assignmentLabel(item.assignmentMode) }}</td>
+          <td><span class="pill" [attr.data-status]="item.status">{{ statusLabel(item.status) }}</span></td>
+          <td class="col-actions">
+            <button
+              type="button"
+              class="button button--ghost"
+              (click)="startEdit(item)"
+              *ngIf="canManage"
+              [disabled]="updating() || saving()"
+            >
+              Modifier
+            </button>
+            <ng-container *ngIf="nextStatus(item.status) as next">
+              <button
+                type="button"
+                class="button"
+                (click)="advanceStatus(item)"
+                *ngIf="canAdvanceTo(next)"
+                [disabled]="statusUpdatingId() === item.id"
+              >
+                {{ statusLabel(next) }}
+              </button>
+            </ng-container>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <ng-template #emptyState>
+      <div class="empty" *ngIf="page()?.totalElements === 0 && !loading()">Aucune intervention trouvée.</div>
+    </ng-template>
+
+    <footer class="pagination" *ngIf="page() as pageData">
+      <button type="button" class="button button--ghost" (click)="changePage(-1)" [disabled]="pageData.page === 0 || loading()">
+        Précédent
+      </button>
+      <span>Page {{ pageData.page + 1 }} / {{ pageData.totalPages || 1 }} • {{ pageData.totalElements }} interventions</span>
+      <button
+        type="button"
+        class="button button--ghost"
+        (click)="changePage(1)"
+        [disabled]="pageData.totalPages === 0 || pageData.page >= pageData.totalPages - 1 || loading()"
+      >
+        Suivant
+      </button>
+    </footer>
+  </section>
+</section>

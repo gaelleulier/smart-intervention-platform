@@ -11,6 +11,8 @@ This document defines the architectural guardrails for the Smart Intervention Pl
 
 ## 2. Domain & Modules
 - MVP scope focuses on **Users Management** (authentication, authorization, CRUD).
+- **Intervention Management** module manages creation, scheduling, and lifecycle of field operations with
+  automatic/manual technician assignment and state transitions (`SCHEDULED → IN_PROGRESS → COMPLETED → VALIDATED`).
 - Future modules must be scoped as dedicated bounded contexts, following clear API versioning when contracts change.
 
 ## 3. Backend Guidelines
@@ -19,6 +21,7 @@ This document defines the architectural guardrails for the Smart Intervention Pl
   - RESTful endpoints, JSON bodies, RFC 7807 problem details for errors.
   - Enforce validation using Jakarta Validation (`@Valid`) and custom constraint annotations when required.
   - Pagination uses Spring Data conventions (`page`, `size`, `sort`).
+  - Interventions API published under `/api/interventions` with filters (`query`, `status`, `assignmentMode`, `technicianId`, `plannedFrom`, `plannedTo`). Only admins/dispatchers can create or edit; technicians may progress the status of their own assignments.
 - **Persistence**:
   - JPA entities mapped via Hibernate; prefer explicit column definitions for clarity.
   - Use repositories for data access and services for business logic. Keep controllers thin.
