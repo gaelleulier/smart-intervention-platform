@@ -12,7 +12,6 @@ import io.smartip.domain.UserRole;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -38,8 +37,9 @@ public class DashboardService {
 
     @Cacheable(cacheNames = "dashboard-summary")
     @Transactional(readOnly = true)
-    public DashboardSummaryResponse getSummary(LocalDate date) {
-        Map<String, DailyMetricRow> metrics = repository.fetchDailyMetrics(date);
+    public DashboardSummaryResponse getSummary(LocalDate date, String requesterEmail, UserRole requesterRole) {
+        Long technicianId = resolveTechnicianId(requesterEmail, requesterRole).orElse(null);
+        Map<String, DailyMetricRow> metrics = repository.fetchDailyMetrics(date, technicianId);
         long scheduled = metrics.getOrDefault("SCHEDULED", zeroRow("SCHEDULED")).count();
         long inProgress = metrics.getOrDefault("IN_PROGRESS", zeroRow("IN_PROGRESS")).count();
         long completed = metrics.getOrDefault("COMPLETED", zeroRow("COMPLETED")).count();
@@ -68,8 +68,9 @@ public class DashboardService {
 
     @Cacheable(cacheNames = "dashboard-status-trends")
     @Transactional(readOnly = true)
-    public List<StatusTrendPoint> getStatusTrends(LocalDate from, LocalDate to) {
-        return repository.fetchStatusTrends(from, to);
+    public List<StatusTrendPoint> getStatusTrends(LocalDate from, LocalDate to, String requesterEmail, UserRole requesterRole) {
+        Long technicianId = resolveTechnicianId(requesterEmail, requesterRole).orElse(null);
+        return repository.fetchStatusTrends(from, to, technicianId);
     }
 
     @Cacheable(cacheNames = "dashboard-technician-load")
@@ -99,7 +100,9 @@ public class DashboardService {
 
     @Cacheable(cacheNames = "dashboard-map")
     @Transactional(readOnly = true)
-    public List<InterventionMapMarker> getMapMarkers(List<String> statuses, boolean preciseCoordinates, int limit) {
+    public List<InterventionMapMarker> getMapMarkers(
+            List<String> statuses, boolean preciseCoordinates, int limit, String requesterEmail, UserRole requesterRole) {
+        Long technicianId = resolveTechnicianId(requesterEmail, requesterRole).orElse(null);
         List<String> normalizedStatuses = Optional.ofNullable(statuses)
                 .orElse(List.of())
                 .stream()
@@ -109,8 +112,9 @@ public class DashboardService {
 
         int cappedLimit = limit > 0 ? Math.min(limit, MAP_DEFAULT_LIMIT) : MAP_DEFAULT_LIMIT;
 
-        List<InterventionMapMarker> rawMarkers = repository.fetchMapMarkers(normalizedStatuses, cappedLimit);
-        if (preciseCoordinates) {
+        List<InterventionMapMarker> rawMarkers =
+                repository.fetchMapMarkers(normalizedStatuses, technicianId, cappedLimit);
+        if (preciseCoordinates || requesterRole == UserRole.TECH) {
             return rawMarkers;
         }
         return rawMarkers.stream()
@@ -127,6 +131,15 @@ public class DashboardService {
 
     private DailyMetricRow zeroRow(String status) {
         return new DailyMetricRow(status, 0L, null, null, null);
+    }
+
+    private Optional<Long> resolveTechnicianId(String email, UserRole role) {
+        if (role != UserRole.TECH) {
+            return Optional.empty();
+        }
+        return userRepository
+                .findByEmailIgnoreCase(email)
+                .map(UserEntity::getId);
     }
 
     private double round(double value, int decimals) {

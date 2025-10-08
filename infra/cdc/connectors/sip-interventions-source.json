@@ -10,6 +10,7 @@
     "plugin.name": "pgoutput",
     "slot.name": "sip_interventions_slot",
     "publication.name": "sip_interventions_publication",
+    "database.server.name": "sip",
     "topic.prefix": "sip",
     "table.include.list": "public.interventions",
     "decimal.handling.mode": "double",

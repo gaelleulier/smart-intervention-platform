@@ -35,24 +35,28 @@ public class DashboardController {
     }
 
     @GetMapping("/summary")
-    @PreAuthorize("hasAnyRole('ADMIN','DISPATCHER')")
+    @PreAuthorize("hasAnyRole('ADMIN','DISPATCHER','TECH')")
     public DashboardSummaryResponse getSummary(
+            Authentication authentication,
             @RequestParam(value = "date", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        UserRole role = resolveRole(authentication);
         LocalDate targetDate = date != null ? date : LocalDate.now();
-        return dashboardService.getSummary(targetDate);
+        return dashboardService.getSummary(targetDate, authentication.getName(), role);
     }
 
     @GetMapping("/status-trends")
-    @PreAuthorize("hasAnyRole('ADMIN','DISPATCHER')")
+    @PreAuthorize("hasAnyRole('ADMIN','DISPATCHER','TECH')")
     public List<StatusTrendPoint> getStatusTrends(
+            Authentication authentication,
             @RequestParam(value = "from", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(value = "to", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        UserRole role = resolveRole(authentication);
         LocalDate end = to != null ? to : LocalDate.now();
         LocalDate start = from != null ? from : end.minusDays(13);
         if (start.isAfter(end)) {
             throw new IllegalArgumentException("Parameter 'from' must be before 'to'");
         }
-        return dashboardService.getStatusTrends(start, end);
+        return dashboardService.getStatusTrends(start, end, authentication.getName(), role);
     }
 
     @GetMapping("/technician-load")
@@ -64,7 +68,7 @@ public class DashboardController {
     }
 
     @GetMapping("/map")
-    @PreAuthorize("hasAnyRole('ADMIN','DISPATCHER')")
+    @PreAuthorize("hasAnyRole('ADMIN','DISPATCHER','TECH')")
     public List<InterventionMapMarker> getMap(
             Authentication authentication,
             @RequestParam(value = "status", required = false) List<String> statuses,
@@ -72,7 +76,7 @@ public class DashboardController {
         UserRole role = resolveRole(authentication);
         boolean precise = role == UserRole.ADMIN;
         int desiredLimit = limit != null ? limit : 0;
-        return dashboardService.getMapMarkers(statuses, precise, desiredLimit);
+        return dashboardService.getMapMarkers(statuses, precise, desiredLimit, authentication.getName(), role);
     }
 
     private UserRole resolveRole(Authentication authentication) {

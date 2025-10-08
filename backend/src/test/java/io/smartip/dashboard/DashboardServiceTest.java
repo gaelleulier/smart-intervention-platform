@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -46,13 +47,13 @@ class DashboardServiceTest {
     void getSummaryAggregatesStatusCounts() {
         LocalDate date = LocalDate.of(2025, 10, 7);
         Instant refreshed = Instant.parse("2025-10-07T10:00:00Z");
-        when(repository.fetchDailyMetrics(date)).thenReturn(Map.of(
+        when(repository.fetchDailyMetrics(eq(date), isNull())).thenReturn(Map.of(
                 "SCHEDULED", new DailyMetricRow("SCHEDULED", 5, null, null, refreshed),
                 "IN_PROGRESS", new DailyMetricRow("IN_PROGRESS", 3, null, null, refreshed),
                 "COMPLETED", new DailyMetricRow("COMPLETED", 7, 540.5, null, refreshed),
                 "VALIDATED", new DailyMetricRow("VALIDATED", 6, null, 87.5, refreshed)));
 
-        DashboardSummaryResponse summary = service.getSummary(date);
+        DashboardSummaryResponse summary = service.getSummary(date, "admin@example.com", UserRole.ADMIN);
 
         assertThat(summary.totalInterventions()).isEqualTo(21);
         assertThat(summary.scheduledCount()).isEqualTo(5);
@@ -98,28 +99,76 @@ class DashboardServiceTest {
     }
 
     @Test
+    void getSummaryFiltersForTechnician() {
+        LocalDate date = LocalDate.of(2025, 10, 8);
+        UserEntity tech = new UserEntity();
+        tech.setId(9L);
+        tech.setEmail("tech@example.com");
+        tech.setRole(UserRole.TECH);
+        when(userRepository.findByEmailIgnoreCase("tech@example.com")).thenReturn(Optional.of(tech));
+        when(repository.fetchDailyMetrics(eq(date), eq(9L))).thenReturn(Map.of());
+
+        DashboardSummaryResponse summary = service.getSummary(date, "tech@example.com", UserRole.TECH);
+
+        assertThat(summary.totalInterventions()).isZero();
+        verify(repository).fetchDailyMetrics(eq(date), eq(9L));
+    }
+
+    @Test
+    void getStatusTrendsFiltersForTechnician() {
+        LocalDate from = LocalDate.of(2025, 10, 1);
+        LocalDate to = LocalDate.of(2025, 10, 7);
+        UserEntity tech = new UserEntity();
+        tech.setId(12L);
+        tech.setEmail("tech@example.com");
+        tech.setRole(UserRole.TECH);
+        when(userRepository.findByEmailIgnoreCase("tech@example.com")).thenReturn(Optional.of(tech));
+        when(repository.fetchStatusTrends(from, to, 12L)).thenReturn(List.of());
+
+        service.getStatusTrends(from, to, "tech@example.com", UserRole.TECH);
+
+        verify(repository).fetchStatusTrends(eq(from), eq(to), eq(12L));
+    }
+
+    @Test
     void getMapMarkersRoundsForNonAdmin() {
         List<InterventionMapMarker> markers = List.of(
                 new InterventionMapMarker(1L, 48.856613, 2.352222, "IN_PROGRESS", 3L, Instant.now(), Instant.now()));
-        when(repository.fetchMapMarkers(any(), eq(500))).thenReturn(markers);
+        when(repository.fetchMapMarkers(any(), isNull(), eq(500))).thenReturn(markers);
 
-        List<InterventionMapMarker> rounded = service.getMapMarkers(List.of("in_progress"), false, 0);
+        List<InterventionMapMarker> rounded =
+                service.getMapMarkers(List.of("in_progress"), false, 0, "dispatcher@example.com", UserRole.DISPATCHER);
 
         assertThat(rounded.get(0).latitude()).isEqualTo(48.86);
         assertThat(rounded.get(0).longitude()).isEqualTo(2.35);
-        verify(repository).fetchMapMarkers(List.of("IN_PROGRESS"), 500);
+        verify(repository).fetchMapMarkers(List.of("IN_PROGRESS"), null, 500);
     }
 
     @Test
     void getMapMarkersKeepsPrecisionForAdmins() {
         List<InterventionMapMarker> markers = List.of(
                 new InterventionMapMarker(1L, 48.856613, 2.352222, "IN_PROGRESS", 3L, Instant.now(), Instant.now()));
-        when(repository.fetchMapMarkers(any(), eq(200))).thenReturn(markers);
+        when(repository.fetchMapMarkers(any(), isNull(), eq(200))).thenReturn(markers);
 
-        List<InterventionMapMarker> raw = service.getMapMarkers(List.of("IN_PROGRESS"), true, 200);
+        List<InterventionMapMarker> raw =
+                service.getMapMarkers(List.of("IN_PROGRESS"), true, 200, "admin@example.com", UserRole.ADMIN);
 
         assertThat(raw.get(0).latitude()).isEqualTo(48.856613);
         assertThat(raw.get(0).longitude()).isEqualTo(2.352222);
+    }
+
+    @Test
+    void getMapMarkersFiltersForTechnician() {
+        UserEntity tech = new UserEntity();
+        tech.setId(5L);
+        tech.setEmail("tech@example.com");
+        tech.setRole(UserRole.TECH);
+        when(userRepository.findByEmailIgnoreCase("tech@example.com")).thenReturn(Optional.of(tech));
+        when(repository.fetchMapMarkers(any(), eq(5L), eq(500))).thenReturn(List.of());
+
+        service.getMapMarkers(List.of("scheduled"), false, 0, "tech@example.com", UserRole.TECH);
+
+        verify(repository).fetchMapMarkers(eq(List.of("SCHEDULED")), eq(5L), eq(500));
     }
 
     @Test

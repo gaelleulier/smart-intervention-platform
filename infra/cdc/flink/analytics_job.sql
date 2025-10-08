@@ -4,7 +4,12 @@ SET 'table.exec.mini-batch.allow-latency' = '5 s';
 SET 'table.exec.mini-batch.size' = '5000';
 SET 'execution.checkpointing.interval' = '60 s';
 
-CREATE TABLE IF NOT EXISTS intervention_events (
+DROP TABLE IF EXISTS analytics_intervention_geo_view;
+DROP TABLE IF EXISTS analytics_intervention_technician_load;
+DROP TABLE IF EXISTS analytics_intervention_daily_metrics;
+DROP TABLE IF EXISTS intervention_events;
+
+CREATE TABLE intervention_events (
     id BIGINT,
     reference STRING,
     title STRING,
@@ -25,22 +30,64 @@ CREATE TABLE IF NOT EXISTS intervention_events (
     WATERMARK FOR source_ts_ms AS source_ts_ms - INTERVAL '5' SECOND
 ) WITH (
     'connector' = 'kafka',
-    'topic' = 'sip.interventions',
+    'topic' = 'sip.public.interventions',
     'properties.bootstrap.servers' = 'kafka:9092',
     'properties.group.id' = 'flink-interventions-consumer',
-    'scan.startup.mode' = 'latest-offset',
+    'properties.allow.auto.create.topics' = 'true',
+    'scan.startup.mode' = 'earliest-offset',
     'format' = 'json',
     'json.fail-on-missing-field' = 'false',
     'json.ignore-parse-errors' = 'true'
 );
 
-CREATE TABLE IF NOT EXISTS analytics_intervention_daily_metrics (
+CREATE TEMPORARY VIEW intervention_events_live AS
+SELECT
+    *,
+    COALESCE(
+        source_ts_ms,
+        updated_at,
+        completed_at,
+        started_at,
+        created_at,
+        CURRENT_TIMESTAMP
+    ) AS event_ts
+FROM intervention_events
+WHERE op IS NULL OR op <> 'd';
+
+CREATE TEMPORARY VIEW intervention_events_current AS
+SELECT
+    id,
+    reference,
+    title,
+    description,
+    status,
+    assignment_mode,
+    planned_at,
+    started_at,
+    completed_at,
+    validated_at,
+    technician_id,
+    latitude,
+    longitude,
+    created_at,
+    updated_at,
+    source_ts_ms,
+    event_ts
+FROM (
+    SELECT
+        *,
+        ROW_NUMBER() OVER (PARTITION BY id ORDER BY event_ts DESC, source_ts_ms DESC) AS row_num
+    FROM intervention_events_live
+) ranked
+WHERE row_num = 1;
+
+CREATE TABLE analytics_intervention_daily_metrics (
     metric_date DATE,
     status STRING,
     total_count BIGINT,
     avg_completion_seconds DOUBLE,
     validation_ratio DOUBLE,
-    last_refreshed_at TIMESTAMP_LTZ(3),
+    last_refreshed_at TIMESTAMP(3),
     PRIMARY KEY (metric_date, status) NOT ENFORCED
 ) WITH (
     'connector' = 'jdbc',
@@ -53,12 +100,12 @@ CREATE TABLE IF NOT EXISTS analytics_intervention_daily_metrics (
     'sink.buffer-flush.max-rows' = '1000'
 );
 
-CREATE TABLE IF NOT EXISTS analytics_intervention_technician_load (
+CREATE TABLE analytics_intervention_technician_load (
     technician_id BIGINT,
     open_count BIGINT,
     completed_today BIGINT,
     avg_completion_seconds DOUBLE,
-    last_refreshed_at TIMESTAMP_LTZ(3),
+    last_refreshed_at TIMESTAMP(3),
     PRIMARY KEY (technician_id) NOT ENFORCED
 ) WITH (
     'connector' = 'jdbc',
@@ -71,14 +118,14 @@ CREATE TABLE IF NOT EXISTS analytics_intervention_technician_load (
     'sink.buffer-flush.max-rows' = '1000'
 );
 
-CREATE TABLE IF NOT EXISTS analytics_intervention_geo_view (
+CREATE TABLE analytics_intervention_geo_view (
     intervention_id BIGINT,
     latitude DOUBLE,
     longitude DOUBLE,
     status STRING,
     technician_id BIGINT,
-    planned_at TIMESTAMP_LTZ(3),
-    updated_at TIMESTAMP_LTZ(3),
+    planned_at TIMESTAMP(3),
+    updated_at TIMESTAMP(3),
     PRIMARY KEY (intervention_id) NOT ENFORCED
 ) WITH (
     'connector' = 'jdbc',
@@ -93,7 +140,10 @@ CREATE TABLE IF NOT EXISTS analytics_intervention_geo_view (
 
 CREATE TEMPORARY VIEW daily_status_counts AS
 SELECT
-    CAST(planned_at AS DATE) AS metric_date,
+    CAST(
+        COALESCE(planned_at, started_at, created_at, event_ts)
+        AS DATE
+    ) AS metric_date,
     status,
     COUNT(*) AS total_count,
     AVG(
@@ -103,10 +153,14 @@ SELECT
             ELSE NULL
         END
     ) AS avg_completion_seconds,
-    MAX(source_ts_ms) AS last_event_ts
-FROM intervention_events
-WHERE op IS NULL OR op <> 'd'
-GROUP BY CAST(planned_at AS DATE), status;
+    MAX(event_ts) AS last_event_ts
+FROM intervention_events_current
+GROUP BY
+    CAST(
+        COALESCE(planned_at, started_at, created_at, event_ts)
+        AS DATE
+    ),
+    status;
 
 CREATE TEMPORARY VIEW daily_completion_summary AS
 SELECT
@@ -128,7 +182,7 @@ SELECT
             THEN (summary.validated_total * 100.0) / summary.completed_total
         ELSE NULL
     END AS validation_ratio,
-    COALESCE(summary.last_event_ts, CURRENT_TIMESTAMP) AS last_refreshed_at
+    CAST(COALESCE(summary.last_event_ts, CURRENT_TIMESTAMP) AS TIMESTAMP(3)) AS last_refreshed_at
 FROM daily_status_counts c
 LEFT JOIN daily_completion_summary summary ON summary.metric_date = c.metric_date;
 
@@ -150,9 +204,9 @@ SELECT
             ELSE NULL
         END
     ) AS avg_completion_seconds,
-    MAX(source_ts_ms) AS last_refreshed_at
-FROM intervention_events
-WHERE technician_id IS NOT NULL AND (op IS NULL OR op <> 'd')
+    CAST(MAX(event_ts) AS TIMESTAMP(3)) AS last_refreshed_at
+FROM intervention_events_current
+WHERE technician_id IS NOT NULL
 GROUP BY technician_id;
 
 INSERT INTO analytics_intervention_geo_view
@@ -162,7 +216,7 @@ SELECT
     longitude,
     status,
     technician_id,
-    planned_at,
-    COALESCE(updated_at, CURRENT_TIMESTAMP) AS updated_at
-FROM intervention_events
-WHERE (op IS NULL OR op <> 'd') AND latitude IS NOT NULL AND longitude IS NOT NULL;
+    CAST(planned_at AS TIMESTAMP(3)) AS planned_at,
+    CAST(COALESCE(updated_at, event_ts, CURRENT_TIMESTAMP) AS TIMESTAMP(3)) AS updated_at
+FROM intervention_events_current
+WHERE latitude IS NOT NULL AND longitude IS NOT NULL;
