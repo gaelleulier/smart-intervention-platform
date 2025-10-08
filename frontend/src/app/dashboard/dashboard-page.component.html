@@ -141,14 +141,14 @@
         [class.map__canvas--empty]="mapMarkers().length === 0"
         aria-label="Carte des interventions">
       </div>
-      <ul class="map__list">
+      <!-- <ul class="map__list">
         <li *ngFor="let marker of mapMarkers()">
           <strong>{{ marker.status }}</strong> — {{ marker.latitude | number: '1.2-4' }},
           {{ marker.longitude | number: '1.2-4' }}
           (MAJ {{ marker.updatedAt | date: 'short' }})
         </li>
         <li *ngIf="mapMarkers().length === 0">Aucune intervention à afficher.</li>
-      </ul>
+      </ul> -->
     </div>
   </article>
 </section>
