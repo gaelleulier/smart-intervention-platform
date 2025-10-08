@@ -1,107 +1,154 @@
-<section class="dashboard">
+<section class="dashboard" [class.dashboard--loading]="loading()">
   <header class="dashboard__header">
     <div>
-      <h2>Tableau de bord</h2>
-      <p>Suivi temps réel des interventions et de la charge technicien.</p>
+      <h2>Smart Intervention Platform</h2>
+      <p>Suivi temps réel des opérations, indicateurs clés et géolocalisation des interventions.</p>
     </div>
-    <button type="button" class="button button--ghost" (click)="refresh()" [disabled]="loading()">
+    <button type="button" class="dashboard__action" (click)="refresh()" [disabled]="loading()">
       Rafraîchir
     </button>
   </header>
 
-  <div *ngIf="error() as err" class="alert alert--error">{{ err }}</div>
+  <div *ngIf="error() as err" class="dashboard__alert">{{ err }}</div>
 
-  <div *ngIf="loading()" class="loader">Chargement du tableau de bord…</div>
+  <div *ngIf="loading()" class="dashboard__loader">Chargement du tableau de bord…</div>
 
-  <section class="cards" *ngIf="!loading() && summary() as data">
-    <article class="card kpi">
-      <h3>Total interventions</h3>
-      <p class="kpi__value">{{ data.totalInterventions }}</p>
-      <p class="kpi__meta">
-        Dernière mise à jour : {{ data.lastRefreshedAt ? (data.lastRefreshedAt | date: 'medium') : 'N/A' }}
-      </p>
+  <section class="dashboard__metrics" *ngIf="summary() as data">
+    <article class="metric-card">
+      <header>
+        <h3>Interventions totales</h3>
+        <span class="metric-card__caption">
+          Mise à jour {{ data.lastRefreshedAt ? (data.lastRefreshedAt | date: 'medium') : 'N/A' }}
+        </span>
+      </header>
+      <p class="metric-card__value">{{ data.totalInterventions }}</p>
     </article>
-    <article class="card kpi" *ngFor="let card of statusKpis">
-      <h3>{{ card.label }}</h3>
-      <p class="kpi__value">{{ summaryValue(data, card.key) }}</p>
+    <article class="metric-card" *ngFor="let card of statusKpis">
+      <header>
+        <h3>{{ card.label }}</h3>
+      </header>
+      <p class="metric-card__value">{{ summaryValue(data, card.key) }}</p>
+      <span class="metric-card__caption">Statut en temps réel</span>
     </article>
-    <article class="card kpi">
-      <h3>Durée moyenne</h3>
-      <p class="kpi__value">
+    <article class="metric-card">
+      <header>
+        <h3>Durée moyenne</h3>
+      </header>
+      <p class="metric-card__value">
         {{ data.averageCompletionSeconds ? (data.averageCompletionSeconds / 60 | number: '1.0-0') + ' min' : 'N/A' }}
       </p>
+      <span class="metric-card__caption">Entre début et validation</span>
     </article>
-    <article class="card kpi">
-      <h3>Taux de validation</h3>
-      <p class="kpi__value">
+    <article class="metric-card">
+      <header>
+        <h3>Taux de validation</h3>
+      </header>
+      <p class="metric-card__value">
         {{ data.validationRatio ? (data.validationRatio | number: '1.0-1') + ' %' : 'N/A' }}
+      </p>
+      <span class="metric-card__caption">Rapport validées / terminées</span>
+    </article>
+  </section>
+
+  <section class="dashboard__viz">
+    <article class="card chart">
+      <header>
+        <h3>Interventions par jour</h3>
+        <p>Tendance consolidée (14 derniers jours).</p>
+      </header>
+      <ng-container *ngIf="interventionsPerDayChart() as lineChart">
+        <div class="chart__canvas" *ngIf="lineChart.datasets.length; else lineEmpty">
+          <canvas baseChart [data]="lineChart" [options]="interventionsPerDayOptions" type="line"></canvas>
+        </div>
+      </ng-container>
+      <ng-template #lineEmpty>
+        <p class="chart__empty">Pas assez de données pour afficher la tendance.</p>
+      </ng-template>
+      <p class="chart__caption">Somme quotidienne toutes statuts confondus.</p>
+    </article>
+
+    <article class="card chart">
+      <header>
+        <h3>Répartition par statut</h3>
+        <p>Volumes empilés (14 derniers jours).</p>
+      </header>
+      <ng-container *ngIf="statusStackedChart() as stackedChart">
+        <div class="chart__canvas" *ngIf="stackedChart.datasets.length; else stackedEmpty">
+          <canvas baseChart [data]="stackedChart" [options]="statusStackedOptions" type="bar"></canvas>
+        </div>
+      </ng-container>
+      <ng-template #stackedEmpty>
+        <p class="chart__empty">Pas de séries disponibles sur la période.</p>
+      </ng-template>
+      <p class="chart__caption">Chaque couleur correspond à un statut d’intervention.</p>
+    </article>
+
+    <article class="card chart">
+      <header>
+        <h3>Charge techniciens</h3>
+        <p>Top 8 par interventions ouvertes.</p>
+      </header>
+      <ng-container *ngIf="technicianLoadChart() as loadChart">
+        <div class="chart__canvas chart__canvas--horizontal" *ngIf="loadChart.datasets.length; else loadEmpty">
+          <canvas baseChart [data]="loadChart" [options]="technicianLoadOptions" type="bar"></canvas>
+        </div>
+      </ng-container>
+      <ng-template #loadEmpty>
+        <p class="chart__empty">Aucune donnée de charge technicien disponible.</p>
+      </ng-template>
+      <p class="chart__caption">Empilement des interventions ouvertes et terminées aujourd’hui.</p>
+    </article>
+
+    <article class="card chart chart--doughnut">
+      <header>
+        <h3>Statuts en temps réel</h3>
+        <p>Répartition actuelle des interventions.</p>
+      </header>
+      <ng-container *ngIf="statusDistributionChart() as donutChart">
+        <div class="chart__canvas" *ngIf="donutChart.datasets.length; else donutEmpty">
+          <canvas baseChart [data]="donutChart" [options]="statusDistributionOptions" type="doughnut"></canvas>
+          <ng-container *ngIf="summary() as summaryData">
+            <div class="chart__doughnut-overlay">
+              <span class="chart__doughnut-value">
+                {{ summaryData.validationRatio != null ? (summaryData.validationRatio | number: '1.0-1') + ' %' : 'N/A' }}
+              </span>
+              <small>Validation</small>
+            </div>
+          </ng-container>
+        </div>
+      </ng-container>
+      <ng-template #donutEmpty>
+        <p class="chart__empty">En attente de données agrégées.</p>
+      </ng-template>
+      <p class="chart__caption">
+        Total suivi: {{ totalSummaryCount() | number }} interventions
+        <span *ngIf="averageCompletionMinutes() as avg">
+          | Durée moyenne: {{ avg | number: '1.0-0' }} min
+        </span>
       </p>
     </article>
   </section>
 
-  <section class="card trends" *ngIf="!loading()">
-    <header class="trends__header">
-      <h3>Tendances des statuts</h3>
-      <p>Représentation tabulaire temporaire avant intégration des graphiques.</p>
-    </header>
-    <table>
-      <thead>
-        <tr>
-          <th scope="col">Date</th>
-          <th scope="col">Statut</th>
-          <th scope="col">Volume</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let point of statusTrends()">
-          <td>{{ point.date | date: 'mediumDate' }}</td>
-          <td>{{ point.status }}</td>
-          <td>{{ point.count }}</td>
-        </tr>
-      </tbody>
-    </table>
-  </section>
-
-  <section class="card load" *ngIf="!loading()">
-    <header class="load__header">
-      <h3>Charge technicien</h3>
-      <p>Ouvert vs. terminé aujourd'hui.</p>
-    </header>
-    <table>
-      <thead>
-        <tr>
-          <th scope="col">Technicien</th>
-          <th scope="col">Email</th>
-          <th scope="col">Ouverts</th>
-          <th scope="col">Terminés (jour)</th>
-          <th scope="col">Durée moyenne</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let tech of technicianLoad()">
-          <td>{{ tech.technicianName }}</td>
-          <td>{{ tech.technicianEmail }}</td>
-          <td>{{ tech.openCount }}</td>
-          <td>{{ tech.completedToday }}</td>
-          <td>{{ tech.averageCompletionSeconds ? (tech.averageCompletionSeconds / 60 | number: '1.0-0') + ' min' : 'N/A' }}</td>
-        </tr>
-      </tbody>
-    </table>
-  </section>
-
-  <section class="card map" *ngIf="!loading()">
+  <article class="card map">
     <header class="map__header">
       <h3>Carte des interventions</h3>
-      <p>Placeholder pour intégration Leaflet.</p>
+      <p>Visualisation temps réel des interventions géolocalisées.</p>
     </header>
-    <div class="map__content">
-      <ul>
+    <div class="map__container">
+      <div
+        #mapContainer
+        class="map__canvas"
+        [class.map__canvas--empty]="mapMarkers().length === 0"
+        aria-label="Carte des interventions">
+      </div>
+      <ul class="map__list">
         <li *ngFor="let marker of mapMarkers()">
-          <strong>{{ marker.status }}</strong> — {{ marker.latitude }}, {{ marker.longitude }}
+          <strong>{{ marker.status }}</strong> — {{ marker.latitude | number: '1.2-4' }},
+          {{ marker.longitude | number: '1.2-4' }}
           (MAJ {{ marker.updatedAt | date: 'short' }})
         </li>
         <li *ngIf="mapMarkers().length === 0">Aucune intervention à afficher.</li>
       </ul>
     </div>
-  </section>
+  </article>
 </section>
