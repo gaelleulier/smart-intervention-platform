@@ -138,6 +138,14 @@
   background: rgba(37, 99, 235, 0.18);
 }
 
+.button--danger {
+  background: rgba(220, 38, 38, 0.95);
+}
+
+.button--danger:hover:not(:disabled) {
+  background: rgba(185, 28, 28, 0.95);
+}
+
 .list table {
   width: 100%;
   border-collapse: collapse;
@@ -161,6 +169,27 @@
   display: flex;
   gap: 0.5rem;
   align-items: center;
+}
+
+.map-picker {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.map-picker__canvas {
+  width: 100%;
+  height: 220px;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.15);
+}
+
+.map-picker__hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #6b7280;
 }
 
 .alert {

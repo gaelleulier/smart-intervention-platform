@@ -231,6 +231,14 @@ public class InterventionService {
         return entity;
     }
 
+    @Transactional
+    public void deleteIntervention(Long id) {
+        InterventionEntity entity = interventionRepository
+                .findById(id)
+                .orElseThrow(() -> new InterventionNotFoundException(id));
+        interventionRepository.delete(entity);
+    }
+
     public record InterventionFilters(
             String query,
             InterventionStatus status,
