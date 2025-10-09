@@ -19,8 +19,8 @@ class UserExceptionsHandler {
         return problem;
     }
 
-    @ExceptionHandler(EmailAlreadyExistsException.class)
-    ProblemDetail handleConflict(EmailAlreadyExistsException ex) {
+    @ExceptionHandler({EmailAlreadyExistsException.class, UserDeletionNotAllowedException.class})
+    ProblemDetail handleConflict(RuntimeException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
     }
 

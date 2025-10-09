@@ -2,7 +2,8 @@ package io.smartip.security;
 
 import io.jsonwebtoken.Claims;
 import java.io.IOException;
-import java.util.Collections;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -20,6 +21,8 @@ import jakarta.servlet.http.HttpServletResponse;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private static final Logger logger = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
     private final JwtTokenService jwtTokenService;
     private final UserDetailsService userDetailsService;
@@ -45,8 +48,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                 }
-            } catch (Exception ignored) {
+            } catch (Exception ex) {
                 SecurityContextHolder.clearContext();
+                logger.warn("JWT parsing failed for request {} {}: {}", request.getMethod(), request.getRequestURI(), ex.getMessage());
             }
         }
         filterChain.doFilter(request, response);

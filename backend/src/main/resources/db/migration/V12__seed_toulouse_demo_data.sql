@@ -212,6 +212,70 @@ BEGIN
                 1.436300::numeric(9,6),
                 date_trunc('day', CURRENT_TIMESTAMP - INTERVAL '2 days') - INTERVAL '4 hours',
                 date_trunc('day', CURRENT_TIMESTAMP - INTERVAL '2 days') + INTERVAL '14 hours 30 minutes'
+            ),
+            (
+                'TLS-2025-013',
+                'Maintenance data hall Ramonville',
+                'Maintenance preventive des onduleurs principaux.',
+                'COMPLETED',
+                'MANUAL',
+                date_trunc('day', CURRENT_TIMESTAMP - INTERVAL '8 days') + INTERVAL '09 hours',
+                date_trunc('day', CURRENT_TIMESTAMP - INTERVAL '8 days') + INTERVAL '09 hours 10 minutes',
+                date_trunc('day', CURRENT_TIMESTAMP - INTERVAL '8 days') + INTERVAL '11 hours 15 minutes',
+                NULL,
+                'alexandre.martin@sip.local',
+                43.555300::numeric(9,6),
+                1.474800::numeric(9,6),
+                date_trunc('day', CURRENT_TIMESTAMP - INTERVAL '8 days') - INTERVAL '6 hours',
+                date_trunc('day', CURRENT_TIMESTAMP - INTERVAL '8 days') + INTERVAL '11 hours 30 minutes'
+            ),
+            (
+                'TLS-2025-014',
+                'Inspection hydraulique Sesquieres',
+                'Inspection des pompes du bassin nord.',
+                'VALIDATED',
+                'AUTO',
+                date_trunc('day', CURRENT_TIMESTAMP - INTERVAL '9 days') + INTERVAL '08 hours 30 minutes',
+                date_trunc('day', CURRENT_TIMESTAMP - INTERVAL '9 days') + INTERVAL '08 hours 45 minutes',
+                date_trunc('day', CURRENT_TIMESTAMP - INTERVAL '9 days') + INTERVAL '10 hours 20 minutes',
+                date_trunc('day', CURRENT_TIMESTAMP - INTERVAL '9 days') + INTERVAL '10 hours 45 minutes',
+                'lea.bernard@sip.local',
+                43.657500::numeric(9,6),
+                1.417300::numeric(9,6),
+                date_trunc('day', CURRENT_TIMESTAMP - INTERVAL '9 days') - INTERVAL '3 hours',
+                date_trunc('day', CURRENT_TIMESTAMP - INTERVAL '9 days') + INTERVAL '11 hours'
+            ),
+            (
+                'TLS-2025-015',
+                'Audit fibre Saint-Cyprien',
+                'Audit des boitiers optiques quartier Saint-Cyprien.',
+                'IN_PROGRESS',
+                'MANUAL',
+                date_trunc('day', CURRENT_TIMESTAMP - INTERVAL '3 days') + INTERVAL '09 hours 45 minutes',
+                date_trunc('day', CURRENT_TIMESTAMP - INTERVAL '3 days') + INTERVAL '09 hours 55 minutes',
+                NULL,
+                NULL,
+                'yacine.benali@sip.local',
+                43.598800::numeric(9,6),
+                1.431600::numeric(9,6),
+                date_trunc('day', CURRENT_TIMESTAMP - INTERVAL '3 days') - INTERVAL '5 hours',
+                date_trunc('day', CURRENT_TIMESTAMP - INTERVAL '3 days') + INTERVAL '12 hours'
+            ),
+            (
+                'TLS-2025-016',
+                'Planification inspection Muret',
+                'Planification d''inspection reseau eau potable secteur Muret.',
+                'SCHEDULED',
+                'AUTO',
+                date_trunc('day', CURRENT_TIMESTAMP + INTERVAL '3 days') + INTERVAL '08 hours 15 minutes',
+                NULL,
+                NULL,
+                NULL,
+                'sophia.renard@sip.local',
+                43.459800::numeric(9,6),
+                1.326200::numeric(9,6),
+                date_trunc('day', CURRENT_TIMESTAMP) - INTERVAL '3 hours',
+                date_trunc('day', CURRENT_TIMESTAMP + INTERVAL '3 days') + INTERVAL '01 hours'
             )
         ) AS t(
             reference,
@@ -289,7 +353,11 @@ BEGIN
             ('TLS-2025-009'),
             ('TLS-2025-010'),
             ('TLS-2025-011'),
-            ('TLS-2025-012')
+            ('TLS-2025-012'),
+            ('TLS-2025-013'),
+            ('TLS-2025-014'),
+            ('TLS-2025-015'),
+            ('TLS-2025-016')
     ),
     base AS (
         SELECT
@@ -363,7 +431,11 @@ BEGIN
             ('TLS-2025-009'),
             ('TLS-2025-010'),
             ('TLS-2025-011'),
-            ('TLS-2025-012')
+            ('TLS-2025-012'),
+            ('TLS-2025-013'),
+            ('TLS-2025-014'),
+            ('TLS-2025-015'),
+            ('TLS-2025-016')
     ),
     per_tech AS (
         SELECT
@@ -424,7 +496,11 @@ BEGIN
             ('TLS-2025-009'),
             ('TLS-2025-010'),
             ('TLS-2025-011'),
-            ('TLS-2025-012')
+            ('TLS-2025-012'),
+            ('TLS-2025-013'),
+            ('TLS-2025-014'),
+            ('TLS-2025-015'),
+            ('TLS-2025-016')
     )
     INSERT INTO analytics.intervention_geo_view (
         intervention_id,

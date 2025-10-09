@@ -4,8 +4,14 @@
       <h2>Smart Intervention Platform</h2>
       <p>Suivi temps réel des opérations, indicateurs clés et géolocalisation des interventions.</p>
     </div>
-    <button type="button" class="dashboard__action" (click)="refresh()" [disabled]="loading()">
-      Rafraîchir
+    <button
+      type="button"
+      class="dashboard__action"
+      (click)="refresh()"
+      [disabled]="busy()"
+      data-testid="refresh-data">
+      <span class="dashboard__action-spinner" *ngIf="busy()"></span>
+      Actualiser les données
     </button>
   </header>
 
@@ -51,75 +57,83 @@
   </section>
 
   <section class="dashboard__viz">
-    <article class="card chart">
+    <article class="card chart" [class.chart--loading]="busy()">
       <header>
         <h3>Interventions par jour</h3>
         <p>Tendance consolidée (14 derniers jours).</p>
       </header>
-      <ng-container *ngIf="interventionsPerDayChart() as lineChart">
-        <div class="chart__canvas" *ngIf="lineChart.datasets.length; else lineEmpty">
-          <canvas baseChart [data]="lineChart" [options]="interventionsPerDayOptions" type="line"></canvas>
-        </div>
+      <ng-container *ngIf="!busy(); else chartLoader">
+        <ng-container *ngIf="interventionsPerDayChart() as lineChart">
+          <div class="chart__canvas" *ngIf="lineChart.datasets.length; else lineEmpty">
+            <canvas baseChart [data]="lineChart" [options]="interventionsPerDayOptions" type="line"></canvas>
+          </div>
+        </ng-container>
+        <ng-template #lineEmpty>
+          <p class="chart__empty">Pas assez de données pour afficher la tendance.</p>
+        </ng-template>
       </ng-container>
-      <ng-template #lineEmpty>
-        <p class="chart__empty">Pas assez de données pour afficher la tendance.</p>
-      </ng-template>
       <p class="chart__caption">Somme quotidienne toutes statuts confondus.</p>
     </article>
 
-    <article class="card chart">
+    <article class="card chart" [class.chart--loading]="busy()">
       <header>
         <h3>Répartition par statut</h3>
         <p>Volumes empilés (14 derniers jours).</p>
       </header>
-      <ng-container *ngIf="statusStackedChart() as stackedChart">
-        <div class="chart__canvas" *ngIf="stackedChart.datasets.length; else stackedEmpty">
-          <canvas baseChart [data]="stackedChart" [options]="statusStackedOptions" type="bar"></canvas>
-        </div>
+      <ng-container *ngIf="!busy(); else chartLoader">
+        <ng-container *ngIf="statusStackedChart() as stackedChart">
+          <div class="chart__canvas" *ngIf="stackedChart.datasets.length; else stackedEmpty">
+            <canvas baseChart [data]="stackedChart" [options]="statusStackedOptions" type="bar"></canvas>
+          </div>
+        </ng-container>
+        <ng-template #stackedEmpty>
+          <p class="chart__empty">Pas de séries disponibles sur la période.</p>
+        </ng-template>
       </ng-container>
-      <ng-template #stackedEmpty>
-        <p class="chart__empty">Pas de séries disponibles sur la période.</p>
-      </ng-template>
       <p class="chart__caption">Chaque couleur correspond à un statut d’intervention.</p>
     </article>
 
-    <article class="card chart">
+    <article class="card chart" [class.chart--loading]="busy()">
       <header>
         <h3>Charge techniciens</h3>
         <p>Top 8 par interventions ouvertes.</p>
       </header>
-      <ng-container *ngIf="technicianLoadChart() as loadChart">
-        <div class="chart__canvas chart__canvas--horizontal" *ngIf="loadChart.datasets.length; else loadEmpty">
-          <canvas baseChart [data]="loadChart" [options]="technicianLoadOptions" type="bar"></canvas>
-        </div>
+      <ng-container *ngIf="!busy(); else chartLoader">
+        <ng-container *ngIf="technicianLoadChart() as loadChart">
+          <div class="chart__canvas chart__canvas--horizontal" *ngIf="loadChart.datasets.length; else loadEmpty">
+            <canvas baseChart [data]="loadChart" [options]="technicianLoadOptions" type="bar"></canvas>
+          </div>
+        </ng-container>
+        <ng-template #loadEmpty>
+          <p class="chart__empty">Aucune donnée de charge technicien disponible.</p>
+        </ng-template>
       </ng-container>
-      <ng-template #loadEmpty>
-        <p class="chart__empty">Aucune donnée de charge technicien disponible.</p>
-      </ng-template>
       <p class="chart__caption">Empilement des interventions ouvertes et terminées aujourd’hui.</p>
     </article>
 
-    <article class="card chart chart--doughnut">
+    <article class="card chart chart--doughnut" [class.chart--loading]="busy()">
       <header>
         <h3>Statuts en temps réel</h3>
         <p>Répartition actuelle des interventions.</p>
       </header>
-      <ng-container *ngIf="statusDistributionChart() as donutChart">
-        <div class="chart__canvas" *ngIf="donutChart.datasets.length; else donutEmpty">
-          <canvas baseChart [data]="donutChart" [options]="statusDistributionOptions" type="doughnut"></canvas>
-          <ng-container *ngIf="summary() as summaryData">
-            <div class="chart__doughnut-overlay">
-              <span class="chart__doughnut-value">
-                {{ summaryData.validationRatio != null ? (summaryData.validationRatio | number: '1.0-1') + ' %' : 'N/A' }}
-              </span>
-              <small>Validation</small>
-            </div>
-          </ng-container>
-        </div>
+      <ng-container *ngIf="!busy(); else chartLoader">
+        <ng-container *ngIf="statusDistributionChart() as donutChart">
+          <div class="chart__canvas" *ngIf="donutChart.datasets.length; else donutEmpty">
+            <canvas baseChart [data]="donutChart" [options]="statusDistributionOptions" type="doughnut"></canvas>
+            <ng-container *ngIf="summary() as summaryData">
+              <div class="chart__doughnut-overlay">
+                <span class="chart__doughnut-value">
+                  {{ summaryData.validationRatio != null ? (summaryData.validationRatio | number: '1.0-1') + ' %' : 'N/A' }}
+                </span>
+                <small>Validation</small>
+              </div>
+            </ng-container>
+          </div>
+        </ng-container>
+        <ng-template #donutEmpty>
+          <p class="chart__empty">En attente de données agrégées.</p>
+        </ng-template>
       </ng-container>
-      <ng-template #donutEmpty>
-        <p class="chart__empty">En attente de données agrégées.</p>
-      </ng-template>
       <p class="chart__caption">
         Total suivi: {{ totalSummaryCount() | number }} interventions
         <span *ngIf="averageCompletionMinutes() as avg">
@@ -128,6 +142,13 @@
       </p>
     </article>
   </section>
+
+  <ng-template #chartLoader>
+    <div class="chart__placeholder">
+      <span class="chart__spinner"></span>
+      <span>Chargement des graphiques…</span>
+    </div>
+  </ng-template>
 
   <article class="card map">
     <header class="map__header">
@@ -141,14 +162,6 @@
         [class.map__canvas--empty]="mapMarkers().length === 0"
         aria-label="Carte des interventions">
       </div>
-      <!-- <ul class="map__list">
-        <li *ngFor="let marker of mapMarkers()">
-          <strong>{{ marker.status }}</strong> — {{ marker.latitude | number: '1.2-4' }},
-          {{ marker.longitude | number: '1.2-4' }}
-          (MAJ {{ marker.updatedAt | date: 'short' }})
-        </li>
-        <li *ngIf="mapMarkers().length === 0">Aucune intervention à afficher.</li>
-      </ul> -->
     </div>
   </article>
 </section>

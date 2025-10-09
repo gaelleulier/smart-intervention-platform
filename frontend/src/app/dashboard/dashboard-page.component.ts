@@ -101,6 +101,8 @@ export class DashboardPageComponent implements OnInit {
     validatedCount: 'VALIDATED'
   };
 
+  protected readonly busy = computed(() => this.loading());
+
   protected readonly totalSummaryCount = computed(() => {
     const summary = this.summary();
     if (!summary) {
