@@ -108,83 +108,112 @@
     </ng-container>
   </section>
 
-  <section class="card list">
+  <section class="card list" [attr.aria-busy]="loading()">
     <div *ngIf="error() as err" class="alert alert--error">{{ err }}</div>
-    <div *ngIf="loading()" class="loader">Loading users…</div>
 
-    <table *ngIf="!loading() && page() as pageData; else emptyState">
-      <thead>
-        <tr>
-          <th scope="col">Email</th>
-          <th scope="col">Full name</th>
-          <th scope="col">Role</th>
-          <th scope="col">Created</th>
-          <th scope="col" class="col-actions">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let user of pageData.content">
-          <td>{{ user.email }}</td>
-          <td>{{ user.fullName }}</td>
-          <td><span class="pill" [attr.data-role]="user.role">{{ user.role }}</span></td>
-          <td>{{ user.createdAt | date: 'medium' }}</td>
-          <td class="col-actions">
-            <button
-              type="button"
-              class="button button--ghost"
-              (click)="startEdit(user)"
-              *ngIf="canEditUser(user)"
-              [disabled]="updating()"
-            >
-              Edit
-            </button>
-            <button
-              type="button"
-              class="button button--danger"
-              (click)="onDeleteUser(user)"
-              *ngIf="canDeleteUser(user)"
-              [disabled]="deletingId() === user.id"
-            >
-              Delete
-            </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <ng-container *ngIf="page() as pageData; else loadingOrEmpty">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Email</th>
+            <th scope="col">Full name</th>
+            <th scope="col">Role</th>
+            <th scope="col">Created</th>
+            <th scope="col" class="col-actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="!pageData.content.length">
+            <td colspan="5" class="empty empty--inline">No users match your filters.</td>
+          </tr>
+          <tr *ngFor="let user of pageData.content; trackBy: trackByUserId">
+            <td>{{ user.email }}</td>
+            <td>{{ user.fullName }}</td>
+            <td><span class="pill" [attr.data-role]="user.role">{{ user.role }}</span></td>
+            <td>{{ user.createdAt | date: 'medium' }}</td>
+            <td class="col-actions">
+              <button
+                type="button"
+                class="button button--ghost"
+                (click)="startEdit(user)"
+                *ngIf="canEditUser(user)"
+                [disabled]="updating()"
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                class="button button--danger"
+                (click)="onDeleteUser(user)"
+                *ngIf="canDeleteUser(user)"
+                [disabled]="deletingId() === user.id"
+              >
+                Delete
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
 
-    <ng-template #emptyState>
-      <div class="empty" *ngIf="page()?.totalElements === 0 && !loading()">No users match your filters.</div>
-    </ng-template>
+      <div class="list__create" *ngIf="isAdmin()">
+        <button
+          type="button"
+          class="button button--circle"
+          (click)="showingCreate() ? cancelCreate() : startCreate()"
+          [attr.aria-label]="showingCreate() ? 'Cancel user creation' : 'Create user'"
+          [disabled]="saving()"
+        >
+          {{ showingCreate() ? '×' : '+' }}
+        </button>
+        <span *ngIf="showingCreate()">Creating a new user...</span>
+      </div>
 
-    <div class="list__create" *ngIf="isAdmin()">
-      <button
-        type="button"
-        class="button button--circle"
-        (click)="showingCreate() ? cancelCreate() : startCreate()"
-        [attr.aria-label]="showingCreate() ? 'Cancel user creation' : 'Create user'"
-        [disabled]="saving()"
-      >
-        {{ showingCreate() ? '×' : '+' }}
-      </button>
-      <span *ngIf="showingCreate()">Creating a new user...</span>
-    </div>
-
-    <footer class="pagination" *ngIf="page() as pageData">
-      <button type="button" class="button button--ghost" (click)="changePage(-1)" [disabled]="pageData.page === 0 || loading()">
-        Previous
-      </button>
-      <span>Page {{ pageData.page + 1 }} / {{ pageData.totalPages || 1 }} • {{ pageData.totalElements }} users</span>
-      <button
-        type="button"
-        class="button button--ghost"
-        (click)="changePage(1)"
-        [disabled]="pageData.page >= pageData.totalPages - 1 || loading()"
-      >
-        Next
-      </button>
-    </footer>
+      <footer class="pagination">
+        <button
+          type="button"
+          class="button button--ghost"
+          (click)="changePage(-1)"
+          [disabled]="pageData.page === 0 || loading()"
+        >
+          Previous
+        </button>
+        <span>Page {{ pageData.page + 1 }} / {{ pageData.totalPages || 1 }} • {{ pageData.totalElements }} users</span>
+        <button
+          type="button"
+          class="button button--ghost"
+          (click)="changePage(1)"
+          [disabled]="pageData.page >= pageData.totalPages - 1 || loading()"
+        >
+          Next
+        </button>
+      </footer>
+    </ng-container>
 
   </section>
+
+  <ng-template #loadingOrEmpty>
+    <ng-container *ngIf="loading(); else emptyState">
+      <table class="table--skeleton" aria-hidden="true">
+        <thead>
+          <tr>
+            <th *ngFor="let _ of skeletonColumns; let isLast = last" [class.col-actions]="isLast"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let _ of skeletonRows">
+            <td *ngFor="let __ of skeletonColumns; let isLast = last" [class.col-actions]="isLast">
+              <span class="skeleton-bar"></span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <span class="sr-only" aria-live="polite">Loading users…</span>
+    </ng-container>
+  </ng-template>
+
+  <ng-template #emptyState>
+    <div class="empty">No users match your filters.</div>
+  </ng-template>
 
   <section class="card create" *ngIf="isAdmin() && showingCreate()">
     <h3>Create user</h3>

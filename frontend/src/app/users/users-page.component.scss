@@ -277,6 +277,10 @@
   color: #6b7280;
 }
 
+.empty--inline {
+  padding: 1.5rem 0;
+}
+
 .pagination {
   margin-top: 1rem;
   display: flex;
@@ -307,6 +311,49 @@
   font-size: 1.5rem;
   line-height: 1;
   padding: 0;
+}
+
+.table--skeleton {
+  width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+  pointer-events: none;
+}
+
+.table--skeleton th,
+.table--skeleton td {
+  padding: 0.75rem 0.5rem;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.05);
+}
+
+.skeleton-bar {
+  display: block;
+  height: 0.875rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(226, 232, 240, 0.6), rgba(203, 213, 225, 0.9), rgba(226, 232, 240, 0.6));
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 @media (max-width: 900px) {

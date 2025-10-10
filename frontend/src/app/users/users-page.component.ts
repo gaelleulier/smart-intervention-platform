@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, PLATFORM_ID, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  PLATFORM_ID,
+  afterNextRender,
+  computed,
+  inject,
+  signal
+} from '@angular/core';
 import { CommonModule, DatePipe, isPlatformBrowser } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -81,10 +89,14 @@ export class UsersPageComponent {
   protected readonly currentUserEmail = computed(() => this.auth.email());
   protected readonly isAdmin = computed(() => this.activeRole() === 'ADMIN');
   protected readonly showingCreate = signal(false);
+  protected readonly skeletonRows = Array.from({ length: 6 });
+  protected readonly skeletonColumns = Array.from({ length: 5 });
 
   constructor() {
     if (this.isBrowser) {
-      void this.loadUsers(0);
+      afterNextRender(() => {
+        void this.loadUsers(0);
+      });
     }
   }
 
@@ -341,5 +353,9 @@ export class UsersPageComponent {
       return detail || 'Request failed';
     }
     return 'Request failed';
+  }
+
+  protected trackByUserId(_index: number, user: UserResponseDto): number {
+    return user.id;
   }
 }
