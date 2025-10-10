@@ -1,4 +1,5 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, PLATFORM_ID, inject, signal } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 
@@ -16,6 +17,8 @@ interface SessionResponseDto {
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly http = inject(HttpClient);
+  private readonly platformId = inject(PLATFORM_ID);
+  private readonly isBrowser = isPlatformBrowser(this.platformId);
   private readonly tokenSignal = signal<string | null>(null);
   private readonly roleSignal = signal<string | null>(null);
   private readonly emailSignal = signal<string | null>(null);
@@ -25,6 +28,11 @@ export class AuthService {
 
   async ensureSessionInitialized(): Promise<void> {
     if (this.sessionInitialized) {
+      return;
+    }
+    if (!this.isBrowser) {
+      this.resetSessionState();
+      this.sessionInitialized = true;
       return;
     }
     if (!this.sessionInitPromise) {
@@ -52,6 +60,9 @@ export class AuthService {
   }
 
   async login(email: string, password: string): Promise<void> {
+    if (!this.isBrowser) {
+      throw new Error('Login is not available during server-side rendering');
+    }
     const response = await firstValueFrom(
       this.http.post<LoginResponseDto>('/api/auth/login', { email, password })
     );
@@ -71,6 +82,11 @@ export class AuthService {
   }
 
   async logout(): Promise<void> {
+    if (!this.isBrowser) {
+      this.resetSessionState();
+      this.sessionInitialized = true;
+      return;
+    }
     try {
       await firstValueFrom(this.http.post<void>('/api/auth/logout', {}));
     } catch {
@@ -85,7 +101,7 @@ export class AuthService {
       const session = await firstValueFrom(this.http.get<SessionResponseDto>('/api/auth/session'));
       this.applySession(session);
     } catch {
-      this.clearSession();
+      this.resetSessionState();
       this.sessionInitialized = true;
     }
   }
@@ -98,11 +114,15 @@ export class AuthService {
   }
 
   private clearSession(): void {
+    this.resetSessionState();
+    this.sessionInitialized = false;
+  }
+
+  private resetSessionState(): void {
     this.tokenSignal.set(null);
     this.roleSignal.set(null);
     this.emailSignal.set(null);
     this.authenticatedSignal.set(false);
-    this.sessionInitialized = false;
   }
 
   private normalizeRole(role: unknown): string | null {
