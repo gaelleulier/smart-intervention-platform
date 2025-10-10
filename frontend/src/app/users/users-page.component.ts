@@ -301,11 +301,11 @@ export class UsersPageComponent {
     }
   }
 
-  logout(): void {
-    this.auth.logout();
+  async logout(): Promise<void> {
+    await this.auth.logout();
     this.cancelEdit();
     this.page.set(null);
-    void this.router.navigate(['/login']);
+    await this.router.navigate(['/login']);
   }
 
   protected canEditUser(user: UserResponseDto): boolean {
@@ -333,7 +333,7 @@ export class UsersPageComponent {
   protected describeError(error: unknown): string {
     if (error instanceof HttpErrorResponse) {
       if (error.status === 401) {
-        this.auth.logout();
+        void this.auth.logout();
         void this.router.navigate(['/login']);
         return 'Authentication required';
       }
