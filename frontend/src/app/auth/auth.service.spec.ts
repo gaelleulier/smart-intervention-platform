@@ -56,6 +56,11 @@ describe('AuthService', () => {
     expect(changeRequest.request.method).toBe('POST');
     changeRequest.flush({});
 
+    await Promise.resolve();
+    const logoutRequest = http.expectOne('/api/auth/logout');
+    expect(logoutRequest.request.method).toBe('POST');
+    logoutRequest.flush({});
+
     await changePromise;
 
     expect(service.token()).toBeNull();
