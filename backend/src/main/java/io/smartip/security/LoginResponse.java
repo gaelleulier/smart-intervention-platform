@@ -1,3 +1,5 @@
 package io.smartip.security;
 
-public record LoginResponse(String token) {}
+import io.smartip.domain.UserRole;
+
+public record LoginResponse(String token, String email, UserRole role) {}

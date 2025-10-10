@@ -34,7 +34,20 @@ public class InterventionService {
     }
 
     @Transactional(readOnly = true)
-    public Page<InterventionEntity> findAll(InterventionFilters filters, Pageable pageable) {
+    public Page<InterventionEntity> findAll(
+            InterventionFilters filters, Pageable pageable, String requesterEmail, UserRole requesterRole) {
+        InterventionFilters effectiveFilters = filters;
+        if (requesterRole == UserRole.TECH) {
+            Long technicianId = userRepository
+                    .findByEmailIgnoreCase(requesterEmail)
+                    .map(UserEntity::getId)
+                    .orElseThrow(() -> new IllegalArgumentException("Unknown technician " + requesterEmail));
+            effectiveFilters = filters.withTechnicianId(technicianId);
+        }
+        return findAllInternal(effectiveFilters, pageable);
+    }
+
+    private Page<InterventionEntity> findAllInternal(InterventionFilters filters, Pageable pageable) {
         Specification<InterventionEntity> specification = Specification.where((root, query, builder) -> builder.conjunction());
 
         if (filters.query() != null && !filters.query().isBlank()) {
@@ -245,7 +258,12 @@ public class InterventionService {
             InterventionAssignmentMode assignmentMode,
             Long technicianId,
             Instant plannedFrom,
-            Instant plannedTo) {}
+            Instant plannedTo) {
+
+        public InterventionFilters withTechnicianId(Long id) {
+            return new InterventionFilters(query, status, assignmentMode, id, plannedFrom, plannedTo);
+        }
+    }
 
     public record CreateInterventionCommand(
             String reference,
