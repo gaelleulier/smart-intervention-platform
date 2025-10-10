@@ -63,6 +63,10 @@ export class InterventionsService {
     return this.http.post<InterventionResponseDto>(`${this.baseUrl}/${id}/status`, payload);
   }
 
+  delete(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/${id}`);
+  }
+
   listTechnicians(): Observable<TechnicianSummary[]> {
     const params = new HttpParams().set('role', 'TECH').set('size', '100');
     return this.http.get<UsersPageResponseDto>(`/api/users`, { params }).pipe(

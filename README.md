@@ -141,6 +141,36 @@ Open the UI: `http://localhost:4200` (you will be redirected to the login screen
 
 ---
 
+## Optional: CDC & Analytics Stack
+
+To enable the near real-time dashboard pipeline (Debezium → Kafka → Flink):
+
+1. **Start the extended stack** – the same `make env-up` now launches Zookeeper, Kafka, Kafka Connect, Flink and Kafka UI in addition to Postgres.
+2. **Download Flink JDBC dependency (one time):**
+   ```bash
+   ./scripts/download-flink-deps.sh
+   ```
+3. **Register Debezium connector:**
+   ```bash
+   ./scripts/register-connectors.sh
+   ```
+4. **Submit the Flink SQL job (credentials are read from `.env`):**
+   ```bash
+   ./scripts/submit-flink-job.sh
+   ```
+
+Access the tooling:
+
+- Kafka UI: <http://localhost:8085>
+- Kafka Connect REST API: <http://localhost:8083>
+- Flink dashboard: <http://localhost:8081>
+
+Each change to the `interventions` table produces an event on `sip.interventions`. The Flink job aggregates these events and upserts the results into `analytics.intervention_daily_metrics`, `analytics.intervention_technician_load`, and `analytics.intervention_geo_view`, which power the dashboard API.
+
+> **Demo datasets:** NYC 311 Service Requests, Chicago Building Permits, or Paris Opendata interventions can be mapped to the SIP schema (reference, title, timestamps, technician, latitude/longitude) to populate realistic scenarios.
+
+---
+
 ## Stop – Development
 
 Stop app servers with `Ctrl + C` in their terminals.

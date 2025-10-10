@@ -1,8 +1,9 @@
+SHELL := /bin/bash
 ENV_FILE ?= .env
 include $(ENV_FILE)
 export $(shell sed 's/=.*//' $(ENV_FILE))
 
-.PHONY: help env-up env-down env-ps backend-run frontend-run db-cli clean
+.PHONY: help env-up env-down env-ps backend-run frontend-run db-cli clean cdc-bootstrap
 
 help:
 	@echo "Targets: env-up | env-down | env-ps | backend-run | frontend-run | db-cli | clean"
@@ -27,3 +28,15 @@ db-cli:
 
 clean:
 	rm -rf backend/target frontend/node_modules
+
+cdc-bootstrap: env-up
+	@echo "Waiting for Kafka services to be ready..."
+	sleep 10
+	@echo "Ensuring CDC topic exists..."
+	docker compose -f docker-compose.dev.yml --env-file $(ENV_FILE) exec kafka \
+		kafka-topics --bootstrap-server kafka:9092 --create \
+		--topic sip.public.interventions --partitions 1 --replication-factor 1 >/dev/null 2>&1 || true
+	@echo "Registering Debezium connectors..."
+	set -a && source $(ENV_FILE) && set +a && ./scripts/register-connectors.sh
+	@echo "Submitting Flink SQL job..."
+	./scripts/submit-flink-job.sh

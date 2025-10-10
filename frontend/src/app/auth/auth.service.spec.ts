@@ -4,54 +4,11 @@ import { HttpClientTestingModule, HttpTestingController } from '@angular/common/
 
 import { AuthService } from './auth.service';
 
-const storageFactory = () => {
-  const store = new Map<string, string>();
-  return {
-    getItem: (key: string) => store.get(key) ?? null,
-    setItem: (key: string, value: string) => {
-      store.set(key, value);
-    },
-    removeItem: (key: string) => {
-      store.delete(key);
-    },
-    clear: () => store.clear()
-  } as Storage;
-};
-
-declare const Buffer:
-  | undefined
-  | {
-      from(input: string, encoding: string): { toString(encoding: string): string };
-    };
-
-const encodeBase64 = (value: string): string => {
-  if (typeof btoa === 'function') {
-    return btoa(value);
-  }
-  if (typeof Buffer !== 'undefined') {
-    return Buffer.from(value, 'utf-8').toString('base64');
-  }
-  throw new Error('No base64 encoder available');
-};
-
-const createToken = (payload: Record<string, unknown>): string => {
-  const header = encodeBase64(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-  const body = encodeBase64(JSON.stringify(payload));
-  return `${header}.${body}.signature`;
-};
-
 describe('AuthService', () => {
   let service: AuthService;
   let http: HttpTestingController;
-  let storage: Storage;
 
   beforeEach(() => {
-    storage = storageFactory();
-    Object.defineProperty(window, 'localStorage', {
-      value: storage,
-      writable: true
-    });
-
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
       providers: [provideZonelessChangeDetection()]
@@ -65,39 +22,50 @@ describe('AuthService', () => {
     http.verify();
   });
 
-  it('stores token and role on login', async () => {
-    const token = createToken({ sub: 'admin@sip.local', role: 'ADMIN', exp: Math.floor(Date.now() / 1000) + 3600 });
-
+  it('stores session info on login', async () => {
     const loginPromise = service.login('admin@sip.local', 'Admin123!');
     const request = http.expectOne('/api/auth/login');
     expect(request.request.method).toBe('POST');
-    request.flush({ token });
+    request.flush({ token: 'jwt-token', email: 'admin@sip.local', role: 'ADMIN' });
 
     await loginPromise;
 
-    expect(service.token()).toBe(token);
+    expect(service.token()).toBe('jwt-token');
     expect(service.role()).toBe('ADMIN');
-    expect(storage.getItem('sip.jwt')).toBe(token);
+    expect(service.email()).toBe('admin@sip.local');
+    expect(service.isAuthenticated()).toBeTrue();
   });
 
-  it('logs out after changing password', async () => {
-    const token = createToken({ sub: 'admin@sip.local', role: 'ADMIN', exp: Math.floor(Date.now() / 1000) + 3600 });
+  it('marks session as initialized after failed restore', async () => {
+    const ensurePromise = service.ensureSessionInitialized();
+    const request = http.expectOne('/api/auth/session');
+    request.flush({}, { status: 401, statusText: 'Unauthorized' });
+    await ensurePromise;
+    expect(service.isAuthenticated()).toBeFalse();
+  });
 
+  it('clears the session after changing password', async () => {
     const loginPromise = service.login('admin@sip.local', 'Admin123!');
     const loginRequest = http.expectOne('/api/auth/login');
-    loginRequest.flush({ token });
+    loginRequest.flush({ token: 'jwt-token', email: 'admin@sip.local', role: 'ADMIN' });
     await loginPromise;
     expect(service.isAuthenticated()).toBeTrue();
 
     const changePromise = service.changePassword('oldPass', 'NewPass123!');
-    const request = http.expectOne('/api/auth/change-password');
-    expect(request.request.method).toBe('POST');
-    request.flush({});
+    const changeRequest = http.expectOne('/api/auth/change-password');
+    expect(changeRequest.request.method).toBe('POST');
+    changeRequest.flush({});
+
+    await Promise.resolve();
+    const logoutRequest = http.expectOne('/api/auth/logout');
+    expect(logoutRequest.request.method).toBe('POST');
+    logoutRequest.flush({});
 
     await changePromise;
 
     expect(service.token()).toBeNull();
     expect(service.role()).toBeNull();
-    expect(storage.getItem('sip.jwt')).toBeNull();
+    expect(service.email()).toBeNull();
+    expect(service.isAuthenticated()).toBeFalse();
   });
 });

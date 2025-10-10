@@ -1,5 +1,15 @@
-import { CommonModule, DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, OnDestroy, computed, inject, signal } from '@angular/core';
+import { CommonModule, DatePipe, isPlatformBrowser } from '@angular/common';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  OnDestroy,
+  PLATFORM_ID,
+  ViewChild,
+  computed,
+  inject,
+  signal
+} from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom, Subscription } from 'rxjs';
@@ -28,6 +38,8 @@ export class InterventionsPageComponent implements OnDestroy {
   private readonly interventionsService = inject(InterventionsService);
   private readonly auth = inject(AuthService);
   private readonly fb = inject(FormBuilder);
+  private readonly platformId = inject(PLATFORM_ID);
+  private readonly isBrowser = isPlatformBrowser(this.platformId);
 
   protected readonly statuses: readonly InterventionStatus[] = [
     'SCHEDULED',
@@ -51,7 +63,9 @@ export class InterventionsPageComponent implements OnDestroy {
     description: [''],
     plannedAt: [this.defaultPlannedAt(), Validators.required],
     assignmentMode: ['MANUAL', Validators.required],
-    technicianId: ['']
+    technicianId: [''],
+    latitude: ['', [Validators.min(-90), Validators.max(90)]],
+    longitude: ['', [Validators.min(-180), Validators.max(180)]]
   });
 
   protected readonly editForm = this.fb.nonNullable.group({
@@ -59,7 +73,9 @@ export class InterventionsPageComponent implements OnDestroy {
     description: [''],
     plannedAt: ['', Validators.required],
     assignmentMode: ['MANUAL', Validators.required],
-    technicianId: ['']
+    technicianId: [''],
+    latitude: ['', [Validators.min(-90), Validators.max(90)]],
+    longitude: ['', [Validators.min(-180), Validators.max(180)]]
   });
 
   protected readonly page = signal<InterventionsPageResponseDto | null>(null);
@@ -67,6 +83,7 @@ export class InterventionsPageComponent implements OnDestroy {
   protected readonly saving = signal(false);
   protected readonly updating = signal(false);
   protected readonly statusUpdatingId = signal<number | null>(null);
+  protected readonly deletingInterventionId = signal<number | null>(null);
   protected readonly error = signal<string | null>(null);
   protected readonly technicians = signal<TechnicianSummary[]>([]);
   protected readonly editingIntervention = signal<InterventionResponseDto | null>(null);
@@ -79,6 +96,15 @@ export class InterventionsPageComponent implements OnDestroy {
   protected readonly isTechnician = computed(() => this.auth.role() === 'TECH');
 
   private readonly subscriptions = new Subscription();
+  private leaflet: typeof import('leaflet') | null = null;
+  private createMap: import('leaflet').Map | null = null;
+  private createMarker: import('leaflet').Marker | null = null;
+  private editMap: import('leaflet').Map | null = null;
+  private editMarker: import('leaflet').Marker | null = null;
+  private readonly defaultCenter: [number, number] = [43.6045, 1.4440];
+
+  @ViewChild('createMapCanvas') private createMapHost?: ElementRef<HTMLDivElement>;
+  @ViewChild('editMapCanvas') private editMapHost?: ElementRef<HTMLDivElement>;
 
   constructor() {
     this.subscriptions.add(
@@ -89,18 +115,35 @@ export class InterventionsPageComponent implements OnDestroy {
       })
     );
     this.subscriptions.add(
+      this.createForm.valueChanges.subscribe(() => {
+        if (this.createMap) {
+          this.syncCreateMarker();
+        }
+      })
+    );
+    this.subscriptions.add(
       this.editForm.controls.assignmentMode.valueChanges.subscribe(mode => {
         if (mode === 'AUTO') {
           this.editForm.patchValue({ technicianId: '' }, { emitEvent: false });
         }
       })
     );
+    this.subscriptions.add(
+      this.editForm.valueChanges.subscribe(() => {
+        if (this.editMap) {
+          this.syncEditMarker();
+        }
+      })
+    );
 
-    void this.initialize();
+    if (this.isBrowser) {
+      void this.initialize();
+    }
   }
 
   ngOnDestroy(): void {
     this.subscriptions.unsubscribe();
+    this.destroyMaps();
   }
 
   protected get canManage(): boolean {
@@ -130,6 +173,11 @@ export class InterventionsPageComponent implements OnDestroy {
     }
     this.resetCreateForm();
     this.showingCreate.set(true);
+    if (this.isBrowser) {
+      setTimeout(() => {
+        void this.initCreateMap();
+      }, 0);
+    }
   }
 
   cancelCreate(): void {
@@ -151,7 +199,9 @@ export class InterventionsPageComponent implements OnDestroy {
       description: this.normalizeOptional(formValue.description),
       plannedAt: this.toIsoString(formValue.plannedAt),
       assignmentMode: formValue.assignmentMode as InterventionAssignmentMode,
-      technicianId: this.parseTechnicianId(formValue.technicianId)
+      technicianId: this.parseTechnicianId(formValue.technicianId),
+      latitude: this.parseCoordinate(formValue.latitude),
+      longitude: this.parseCoordinate(formValue.longitude)
     };
     if (payload.assignmentMode === 'AUTO') {
       payload.technicianId = null;
@@ -178,13 +228,29 @@ export class InterventionsPageComponent implements OnDestroy {
       description: intervention.description ?? '',
       plannedAt: this.toLocalDateTimeInput(intervention.plannedAt),
       assignmentMode: intervention.assignmentMode,
-      technicianId: intervention.technician ? String(intervention.technician.id) : ''
+      technicianId: intervention.technician ? String(intervention.technician.id) : '',
+      latitude: intervention.latitude != null ? String(intervention.latitude) : '',
+      longitude: intervention.longitude != null ? String(intervention.longitude) : ''
     });
+    if (this.isBrowser) {
+      setTimeout(() => {
+        void this.initEditMap();
+      }, 0);
+    }
   }
 
   cancelEdit(): void {
     this.editingIntervention.set(null);
-    this.editForm.reset({ title: '', description: '', plannedAt: '', assignmentMode: 'MANUAL', technicianId: '' });
+    this.editForm.reset({
+      title: '',
+      description: '',
+      plannedAt: '',
+      assignmentMode: 'MANUAL',
+      technicianId: '',
+      latitude: '',
+      longitude: ''
+    });
+    this.syncEditMarker();
   }
 
   async onUpdateIntervention(): Promise<void> {
@@ -201,7 +267,9 @@ export class InterventionsPageComponent implements OnDestroy {
       description: this.normalizeOptional(formValue.description),
       plannedAt: this.toIsoString(formValue.plannedAt),
       assignmentMode: formValue.assignmentMode as InterventionAssignmentMode,
-      technicianId: this.parseTechnicianId(formValue.technicianId)
+      technicianId: this.parseTechnicianId(formValue.technicianId),
+      latitude: this.parseCoordinate(formValue.latitude),
+      longitude: this.parseCoordinate(formValue.longitude)
     };
     if (payload.assignmentMode === 'AUTO') {
       payload.technicianId = null;
@@ -231,6 +299,29 @@ export class InterventionsPageComponent implements OnDestroy {
       this.error.set(this.describeError(error));
     } finally {
       this.statusUpdatingId.set(null);
+    }
+  }
+
+  async deleteIntervention(intervention: InterventionResponseDto): Promise<void> {
+    if (!this.canManage || this.deletingInterventionId()) {
+      return;
+    }
+    const confirmed = window.confirm(`Supprimer ${intervention.reference} ?`);
+    if (!confirmed) {
+      return;
+    }
+    this.deletingInterventionId.set(intervention.id);
+    this.error.set(null);
+    try {
+      await firstValueFrom(this.interventionsService.delete(intervention.id));
+      if (this.editingIntervention()?.id === intervention.id) {
+        this.cancelEdit();
+      }
+      await this.loadInterventions(this.currentPage());
+    } catch (error) {
+      this.error.set(this.describeError(error));
+    } finally {
+      this.deletingInterventionId.set(null);
     }
   }
 
@@ -387,7 +478,151 @@ export class InterventionsPageComponent implements OnDestroy {
       description: '',
       plannedAt: this.defaultPlannedAt(),
       assignmentMode: 'MANUAL',
-      technicianId: ''
+      technicianId: '',
+      latitude: '',
+      longitude: ''
     });
+    this.syncCreateMarker();
+  }
+
+  private parseCoordinate(value: string): number | null {
+    if (!value) {
+      return null;
+    }
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  private async ensureLeaflet(): Promise<typeof import('leaflet')> {
+    if (this.leaflet) {
+      return this.leaflet;
+    }
+    const module = await import('leaflet');
+    this.leaflet = module.default ?? module;
+    return this.leaflet;
+  }
+
+  private async initCreateMap(): Promise<void> {
+    if (!this.isBrowser || !this.createMapHost) {
+      return;
+    }
+    const L = await this.ensureLeaflet();
+    if (!this.createMap) {
+      this.createMap = L.map(this.createMapHost.nativeElement, {
+        center: this.defaultCenter,
+        zoom: 12,
+        attributionControl: false
+      });
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap'
+      }).addTo(this.createMap);
+      this.createMap.on('click', event => {
+        this.applyCreateSelection(event.latlng.lat, event.latlng.lng);
+      });
+    }
+    this.syncCreateMarker();
+    setTimeout(() => this.createMap?.invalidateSize(), 100);
+  }
+
+  private async initEditMap(): Promise<void> {
+    if (!this.isBrowser || !this.editMapHost) {
+      return;
+    }
+    const L = await this.ensureLeaflet();
+    if (!this.editMap) {
+      this.editMap = L.map(this.editMapHost.nativeElement, {
+        center: this.defaultCenter,
+        zoom: 12,
+        attributionControl: false
+      });
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap'
+      }).addTo(this.editMap);
+      this.editMap.on('click', event => {
+        this.applyEditSelection(event.latlng.lat, event.latlng.lng);
+      });
+    }
+    this.syncEditMarker();
+    setTimeout(() => this.editMap?.invalidateSize(), 100);
+  }
+
+  private applyCreateSelection(lat: number, lng: number): void {
+    this.createForm.patchValue({ latitude: lat.toFixed(6), longitude: lng.toFixed(6) }, { emitEvent: false });
+    this.syncCreateMarker(lat, lng);
+  }
+
+  private applyEditSelection(lat: number, lng: number): void {
+    this.editForm.patchValue({ latitude: lat.toFixed(6), longitude: lng.toFixed(6) }, { emitEvent: false });
+    this.syncEditMarker(lat, lng);
+  }
+
+  private syncCreateMarker(lat?: number, lng?: number): void {
+    if (!this.createMap) {
+      return;
+    }
+    const L = this.leaflet;
+    if (!L) {
+      return;
+    }
+    const formValue = this.createForm.getRawValue();
+    const latitude = lat ?? this.parseCoordinate(formValue.latitude || '');
+    const longitude = lng ?? this.parseCoordinate(formValue.longitude || '');
+    if (latitude != null && longitude != null) {
+      if (!this.createMarker) {
+        this.createMarker = L.marker([latitude, longitude]).addTo(this.createMap);
+      } else {
+        this.createMarker.setLatLng([latitude, longitude]);
+      }
+      this.createMap.setView([latitude, longitude], this.createMap.getZoom());
+    } else if (this.createMarker) {
+      this.createMap.removeLayer(this.createMarker);
+      this.createMarker = null;
+      this.createMap.setView(this.defaultCenter, this.createMap.getZoom());
+    } else {
+      this.createMap.setView(this.defaultCenter, this.createMap.getZoom());
+    }
+  }
+
+  private syncEditMarker(lat?: number, lng?: number): void {
+    if (!this.editMap) {
+      return;
+    }
+    const L = this.leaflet;
+    if (!L) {
+      return;
+    }
+    const formValue = this.editForm.getRawValue();
+    const latitude = lat ?? this.parseCoordinate(formValue.latitude || '');
+    const longitude = lng ?? this.parseCoordinate(formValue.longitude || '');
+    if (latitude != null && longitude != null) {
+      if (!this.editMarker) {
+        this.editMarker = L.marker([latitude, longitude]).addTo(this.editMap);
+      } else {
+        this.editMarker.setLatLng([latitude, longitude]);
+      }
+      this.editMap.setView([latitude, longitude], this.editMap.getZoom());
+    } else if (this.editMarker) {
+      this.editMap.removeLayer(this.editMarker);
+      this.editMarker = null;
+      this.editMap.setView(this.defaultCenter, this.editMap.getZoom());
+    } else {
+      this.editMap.setView(this.defaultCenter, this.editMap.getZoom());
+    }
+  }
+
+  private destroyMaps(): void {
+    if (this.createMap) {
+      this.createMap.remove();
+      this.createMap = null;
+    }
+    if (this.editMap) {
+      this.editMap.remove();
+      this.editMap = null;
+    }
+    this.createMarker = null;
+    this.editMarker = null;
+    this.leaflet = null;
   }
 }

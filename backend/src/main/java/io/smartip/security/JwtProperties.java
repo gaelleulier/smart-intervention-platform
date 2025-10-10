@@ -8,4 +8,6 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 public record JwtProperties(
         String secret,
         @DefaultValue("smart-intervention-platform") String issuer,
-        @DefaultValue("PT1H") Duration expiration) {}
+        @DefaultValue("PT1H") Duration expiration,
+        @DefaultValue("sip_jwt") String cookieName,
+        @DefaultValue("false") boolean cookieSecure) {}

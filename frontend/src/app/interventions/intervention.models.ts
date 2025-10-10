@@ -20,6 +20,8 @@ export interface InterventionResponseDto {
   validatedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  latitude: number | null;
+  longitude: number | null;
   technician: TechnicianSummary | null;
 }
 
@@ -49,6 +51,8 @@ export interface CreateInterventionPayload {
   plannedAt: string;
   assignmentMode: InterventionAssignmentMode;
   technicianId?: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface UpdateInterventionPayload {
@@ -57,6 +61,8 @@ export interface UpdateInterventionPayload {
   plannedAt: string;
   assignmentMode: InterventionAssignmentMode;
   technicianId?: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface UpdateStatusPayload {

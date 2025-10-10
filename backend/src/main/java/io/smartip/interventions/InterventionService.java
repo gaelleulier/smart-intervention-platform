@@ -34,7 +34,20 @@ public class InterventionService {
     }
 
     @Transactional(readOnly = true)
-    public Page<InterventionEntity> findAll(InterventionFilters filters, Pageable pageable) {
+    public Page<InterventionEntity> findAll(
+            InterventionFilters filters, Pageable pageable, String requesterEmail, UserRole requesterRole) {
+        InterventionFilters effectiveFilters = filters;
+        if (requesterRole == UserRole.TECH) {
+            Long technicianId = userRepository
+                    .findByEmailIgnoreCase(requesterEmail)
+                    .map(UserEntity::getId)
+                    .orElseThrow(() -> new IllegalArgumentException("Unknown technician " + requesterEmail));
+            effectiveFilters = filters.withTechnicianId(technicianId);
+        }
+        return findAllInternal(effectiveFilters, pageable);
+    }
+
+    private Page<InterventionEntity> findAllInternal(InterventionFilters filters, Pageable pageable) {
         Specification<InterventionEntity> specification = Specification.where((root, query, builder) -> builder.conjunction());
 
         if (filters.query() != null && !filters.query().isBlank()) {
@@ -92,6 +105,8 @@ public class InterventionService {
         entity.setPlannedAt(command.plannedAt());
         entity.setStatus(InterventionStatus.SCHEDULED);
         entity.setAssignmentMode(command.assignmentMode());
+        entity.setLatitude(normalizeCoordinate(command.latitude()));
+        entity.setLongitude(normalizeCoordinate(command.longitude()));
         applyAssignment(entity, command.assignmentMode(), command.technicianId(), command.plannedAt());
         return initializeTechnician(interventionRepository.save(entity));
     }
@@ -106,6 +121,8 @@ public class InterventionService {
         entity.setDescription(normalizeDescription(command.description()));
         entity.setPlannedAt(command.plannedAt());
         entity.setAssignmentMode(command.assignmentMode());
+        entity.setLatitude(normalizeCoordinate(command.latitude()));
+        entity.setLongitude(normalizeCoordinate(command.longitude()));
         applyAssignment(entity, command.assignmentMode(), command.technicianId(), command.plannedAt());
         return initializeTechnician(interventionRepository.save(entity));
     }
@@ -210,11 +227,29 @@ public class InterventionService {
                 .orElse(null);
     }
 
+    private java.math.BigDecimal normalizeCoordinate(Double value) {
+        if (value == null) {
+            return null;
+        }
+        if (Double.isNaN(value) || Double.isInfinite(value)) {
+            return null;
+        }
+        return java.math.BigDecimal.valueOf(value);
+    }
+
     private InterventionEntity initializeTechnician(InterventionEntity entity) {
         if (entity.getTechnician() != null) {
             entity.getTechnician().getFullName();
         }
         return entity;
+    }
+
+    @Transactional
+    public void deleteIntervention(Long id) {
+        InterventionEntity entity = interventionRepository
+                .findById(id)
+                .orElseThrow(() -> new InterventionNotFoundException(id));
+        interventionRepository.delete(entity);
     }
 
     public record InterventionFilters(
@@ -223,7 +258,12 @@ public class InterventionService {
             InterventionAssignmentMode assignmentMode,
             Long technicianId,
             Instant plannedFrom,
-            Instant plannedTo) {}
+            Instant plannedTo) {
+
+        public InterventionFilters withTechnicianId(Long id) {
+            return new InterventionFilters(query, status, assignmentMode, id, plannedFrom, plannedTo);
+        }
+    }
 
     public record CreateInterventionCommand(
             String reference,
@@ -231,7 +271,9 @@ public class InterventionService {
             String description,
             Instant plannedAt,
             InterventionAssignmentMode assignmentMode,
-            Long technicianId) {
+            Long technicianId,
+            Double latitude,
+            Double longitude) {
 
         public CreateInterventionCommand {
             Objects.requireNonNull(reference, "reference");
@@ -246,7 +288,9 @@ public class InterventionService {
             String description,
             Instant plannedAt,
             InterventionAssignmentMode assignmentMode,
-            Long technicianId) {
+            Long technicianId,
+            Double latitude,
+            Double longitude) {
 
         public UpdateInterventionCommand {
             Objects.requireNonNull(title, "title");

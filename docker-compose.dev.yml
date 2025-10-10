@@ -8,6 +8,16 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
+    command:
+      - postgres
+      - -c
+      - wal_level=logical
+      - -c
+      - max_wal_senders=4
+      - -c
+      - max_replication_slots=4
+      - -c
+      - max_connections=200
     ports:
       - "${POSTGRES_PORT}:5432"
     volumes:
@@ -17,5 +27,128 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.3
+    container_name: ${PROJECT_NAME}-zookeeper-dev
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.3
+    container_name: ${PROJECT_NAME}-kafka-dev
+    restart: unless-stopped
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    command: ["bash", "-c", "rm -rf /var/lib/kafka/data/* && /etc/confluent/docker/run"]
+    ports:
+      - "29092:29092"
+    volumes:
+      - kafka_data_dev:/var/lib/kafka/data
+
+  kafka-connect:
+    image: debezium/connect:2.6
+    container_name: ${PROJECT_NAME}-connect-dev
+    restart: unless-stopped
+    depends_on:
+      - kafka
+      - db
+    environment:
+      BOOTSTRAP_SERVERS: kafka:9092
+      GROUP_ID: 1
+      CONFIG_STORAGE_TOPIC: connect-configs
+      OFFSET_STORAGE_TOPIC: connect-offsets
+      STATUS_STORAGE_TOPIC: connect-status
+      KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      KEY_CONVERTER_SCHEMAS_ENABLE: "false"
+      VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+      ENABLE_APICURIO_CONVERTERS: "false"
+      CONNECT_REST_ADVERTISED_HOST_NAME: kafka-connect
+      CONNECT_LOG4J_ROOT_LOGLEVEL: INFO
+    ports:
+      - "8083:8083"
+    volumes:
+      - ./infra/cdc/connectors:/kafka/connectors:ro
+
+  flink-jobmanager:
+    image: apache/flink:1.19.1-scala_2.12-java11
+    container_name: ${PROJECT_NAME}-flink-jobmanager
+    restart: unless-stopped
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      KAFKA_BOOTSTRAP: kafka:9092
+      CDC_TOPIC: sip.interventions
+    command: jobmanager
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./infra/cdc/flink:/opt/flink/usrlib:rw
+      - ./infra/cdc/lib/postgresql-42.7.7.jar:/opt/flink/lib/postgresql-42.7.7.jar:ro
+      - ./infra/cdc/lib/flink-connector-jdbc-3.3.0-1.19.jar:/opt/flink/lib/flink-connector-jdbc-3.3.0-1.19.jar:ro
+      - ./infra/cdc/lib/flink-sql-connector-kafka-3.3.0-1.19.jar:/opt/flink/lib/flink-sql-connector-kafka-3.3.0-1.19.jar:ro
+    depends_on:
+      - kafka
+
+  flink-taskmanager:
+    image: apache/flink:1.19.1-scala_2.12-java11
+    container_name: ${PROJECT_NAME}-flink-taskmanager
+    restart: unless-stopped
+    depends_on:
+      - flink-jobmanager
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.numberOfTaskSlots: 4
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      KAFKA_BOOTSTRAP: kafka:9092
+      CDC_TOPIC: sip.interventions
+    command: taskmanager
+    volumes:
+      - ./infra/cdc/flink:/opt/flink/usrlib:rw
+      - ./infra/cdc/lib/postgresql-42.7.7.jar:/opt/flink/lib/postgresql-42.7.7.jar:ro
+      - ./infra/cdc/lib/flink-connector-jdbc-3.3.0-1.19.jar:/opt/flink/lib/flink-connector-jdbc-3.3.0-1.19.jar:ro
+      - ./infra/cdc/lib/flink-sql-connector-kafka-3.3.0-1.19.jar:/opt/flink/lib/flink-sql-connector-kafka-3.3.0-1.19.jar:ro
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: ${PROJECT_NAME}-kafka-ui
+    restart: unless-stopped
+    depends_on:
+      - kafka
+      - kafka-connect
+    environment:
+      KAFKA_CLUSTERS_0_NAME: dev-cluster
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME: connect
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS: http://kafka-connect:8083
+    ports:
+      - "8085:8080"
+
 volumes:
   db_data_dev:
+  kafka_data_dev:

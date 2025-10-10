@@ -1,41 +1,49 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, PLATFORM_ID, inject, signal } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 
 interface LoginResponseDto {
   token: string;
+  email: string;
+  role: string;
 }
 
-declare const Buffer:
-  | undefined
-  | {
-      from(input: string, encoding: string): { toString(encoding: string): string };
-    };
+interface SessionResponseDto {
+  email: string;
+  role: string;
+}
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  private readonly tokenStorageKey = 'sip.jwt';
+  private readonly http = inject(HttpClient);
+  private readonly platformId = inject(PLATFORM_ID);
+  private readonly isBrowser = isPlatformBrowser(this.platformId);
   private readonly tokenSignal = signal<string | null>(null);
   private readonly roleSignal = signal<string | null>(null);
   private readonly emailSignal = signal<string | null>(null);
-  private readonly expirySignal = signal<number | null>(null);
-  private readonly http = inject(HttpClient);
-  private logoutTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly authenticatedSignal = signal(false);
+  private sessionInitPromise: Promise<void> | null = null;
+  private sessionInitialized = false;
 
-  constructor() {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      const storedToken = window.localStorage.getItem(this.tokenStorageKey);
-      if (storedToken) {
-        this.persistToken(storedToken);
-      }
+  async ensureSessionInitialized(): Promise<void> {
+    if (this.sessionInitialized) {
+      return;
     }
+    if (!this.isBrowser) {
+      this.resetSessionState();
+      this.sessionInitialized = true;
+      return;
+    }
+    if (!this.sessionInitPromise) {
+      this.sessionInitPromise = this.restoreSession().finally(() => {
+        this.sessionInitPromise = null;
+      });
+    }
+    await this.sessionInitPromise;
   }
 
   token(): string | null {
-    if (this.isExpired()) {
-      this.logout();
-      return null;
-    }
     return this.tokenSignal();
   }
 
@@ -48,14 +56,19 @@ export class AuthService {
   }
 
   isAuthenticated(): boolean {
-    return !!this.token() && !this.isExpired();
+    return this.authenticatedSignal();
   }
 
   async login(email: string, password: string): Promise<void> {
+    if (!this.isBrowser) {
+      throw new Error('Login is not available during server-side rendering');
+    }
     const response = await firstValueFrom(
       this.http.post<LoginResponseDto>('/api/auth/login', { email, password })
     );
-    this.persistToken(response.token);
+    this.tokenSignal.set(response.token ?? null);
+    this.applySession({ email: response.email, role: response.role });
+    this.sessionInitialized = true;
   }
 
   async changePassword(currentPassword: string, newPassword: string): Promise<void> {
@@ -65,72 +78,58 @@ export class AuthService {
         newPassword
       })
     );
-    this.logout();
+    await this.logout();
   }
 
-  logout(): void {
-    if (this.logoutTimer) {
-      clearTimeout(this.logoutTimer);
-      this.logoutTimer = null;
+  async logout(): Promise<void> {
+    if (!this.isBrowser) {
+      this.resetSessionState();
+      this.sessionInitialized = true;
+      return;
     }
+    try {
+      await firstValueFrom(this.http.post<void>('/api/auth/logout', {}));
+    } catch {
+      // ignore logout errors but still clear local state
+    } finally {
+      this.clearSession();
+    }
+  }
+
+  private async restoreSession(): Promise<void> {
+    try {
+      const session = await firstValueFrom(this.http.get<SessionResponseDto>('/api/auth/session'));
+      this.applySession(session);
+    } catch {
+      this.resetSessionState();
+      this.sessionInitialized = true;
+    }
+  }
+
+  private applySession(session: SessionResponseDto): void {
+    this.emailSignal.set(typeof session.email === 'string' ? session.email : null);
+    this.roleSignal.set(this.normalizeRole(session.role));
+    this.authenticatedSignal.set(true);
+    this.sessionInitialized = true;
+  }
+
+  private clearSession(): void {
+    this.resetSessionState();
+    this.sessionInitialized = false;
+  }
+
+  private resetSessionState(): void {
     this.tokenSignal.set(null);
     this.roleSignal.set(null);
     this.emailSignal.set(null);
-    this.expirySignal.set(null);
-    if (typeof window !== 'undefined' && window.localStorage) {
-      window.localStorage.removeItem(this.tokenStorageKey);
-    }
+    this.authenticatedSignal.set(false);
   }
 
-  private persistToken(token: string): void {
-    this.tokenSignal.set(token);
-    const decoded = this.decode(token);
-    const role = decoded ? decoded['role'] : null;
-    const subject = decoded ? decoded['sub'] : null;
-    const expValue = decoded ? decoded['exp'] : null;
-    const exp = typeof expValue === 'number' ? expValue * 1000 : null;
-    this.roleSignal.set(typeof role === 'string' ? role : null);
-    this.emailSignal.set(typeof subject === 'string' ? subject : null);
-    this.expirySignal.set(exp);
-    this.scheduleAutoLogout(exp);
-    if (typeof window !== 'undefined' && window.localStorage) {
-      window.localStorage.setItem(this.tokenStorageKey, token);
-    }
-  }
-
-  private decode(token: string): Record<string, unknown> | null {
-    try {
-      const [, payload] = token.split('.');
-      if (!payload) {
-        return null;
-      }
-      let json: string;
-      if (typeof atob === 'function') {
-        json = atob(payload);
-      } else if (typeof Buffer !== 'undefined') {
-        json = Buffer.from(payload, 'base64').toString('utf-8');
-      } else {
-        return null;
-      }
-      return JSON.parse(json) as Record<string, unknown>;
-    } catch (error) {
+  private normalizeRole(role: unknown): string | null {
+    if (typeof role !== 'string') {
       return null;
     }
-  }
-
-  private isExpired(): boolean {
-    const expiry = this.expirySignal();
-    return typeof expiry === 'number' && Date.now() >= expiry;
-  }
-
-  private scheduleAutoLogout(expiry: number | null): void {
-    if (this.logoutTimer) {
-      clearTimeout(this.logoutTimer);
-      this.logoutTimer = null;
-    }
-    if (expiry && expiry > Date.now()) {
-      const delay = expiry - Date.now();
-      this.logoutTimer = setTimeout(() => this.logout(), delay);
-    }
+    const value = role.trim().toUpperCase();
+    return value.length > 0 ? value : null;
   }
 }
