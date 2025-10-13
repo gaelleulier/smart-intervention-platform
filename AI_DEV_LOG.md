@@ -231,3 +231,14 @@ The goal is to improve responsiveness, traceability, and operational efficiency 
   - [ ] Update GitLab CI (.gitlab-ci.yml) IF needed
 - Notes:
   - Scripts `npm run lint` absents; pas de tests exécutés.
+
+### 2025-10-13-T:16:21:45 - Lock AI recommendation for technicians
+- Summary:
+  - Désactivé les boutons “Recommander” et “Choisir sur la carte” lorsque l’utilisateur connecté est TECH afin de griser la card IA côté techniciens.
+  - Protégé les handlers correspondants côté TypeScript pour éviter les soumissions accidentelles.
+- Savepoints:
+  - None
+- Required updates:
+  - [ ] Update GitLab CI (.gitlab-ci.yml) IF needed
+- Notes:
+  - Tests non exécutés.

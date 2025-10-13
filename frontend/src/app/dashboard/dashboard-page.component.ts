@@ -33,6 +33,7 @@ import { NgChartsModule } from 'ng2-charts';
 import { Chart, ChartConfiguration, ChartOptions, registerables } from 'chart.js';
 import { ShellStateService } from '../layout/shell-state.service';
 import { DashboardService } from './dashboard.service';
+import { AuthService } from '../auth/auth.service';
 
 Chart.register(...registerables);
 
@@ -54,6 +55,7 @@ export class DashboardPageComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly isBrowser = isPlatformBrowser(this.platformId);
   private readonly shellState = inject(ShellStateService);
+  private readonly auth = inject(AuthService);
 
   private mapContainerEl?: HTMLDivElement;
   private smartMapContainerEl?: HTMLDivElement;
@@ -85,6 +87,14 @@ export class DashboardPageComponent implements OnInit {
   protected readonly smartAssignmentMapOpen = signal(false);
   protected readonly smartAssignmentLocation = signal<{ lat: number; lng: number } | null>(null);
   protected readonly smartAssignmentToast = signal<string | null>(null);
+  protected readonly smartAssignmentReadOnly = computed(() => {
+    const role = this.auth.role();
+    if (!role) {
+      return false;
+    }
+    const normalized = role.trim().toUpperCase();
+    return normalized === 'TECH' || normalized === 'TECHNICIAN';
+  });
   protected readonly statusKpis: ReadonlyArray<{ key: SummaryMetricKey; label: string }> = [
     { key: 'scheduledCount', label: 'Planifiées' },
     { key: 'inProgressCount', label: 'En cours' },
@@ -561,6 +571,9 @@ export class DashboardPageComponent implements OnInit {
   }
 
   protected async onSmartAssignmentSubmit(): Promise<void> {
+    if (this.smartAssignmentReadOnly()) {
+      return;
+    }
     if (this.smartAssignmentLoading()) {
       return;
     }
@@ -606,6 +619,9 @@ export class DashboardPageComponent implements OnInit {
   }
 
   protected resetSmartAssignment(): void {
+    if (this.smartAssignmentReadOnly()) {
+      return;
+    }
     this.smartAssignmentForm.reset({
       title: '',
       latitude: null,
@@ -662,6 +678,9 @@ export class DashboardPageComponent implements OnInit {
   }
 
   protected applyRecommendation(candidate?: SmartAssignmentCandidate): void {
+    if (this.smartAssignmentReadOnly()) {
+      return;
+    }
     const current = this.smartAssignmentResult();
     if (!current) {
       return;
@@ -706,6 +725,9 @@ export class DashboardPageComponent implements OnInit {
   }
 
   protected openSmartAssignmentMap(): void {
+    if (this.smartAssignmentReadOnly()) {
+      return;
+    }
     this.smartAssignmentMapOpen.set(true);
   }
 
@@ -763,6 +785,9 @@ export class DashboardPageComponent implements OnInit {
   }
 
   private onSmartAssignmentMapClick(latlng: { lat: number; lng: number }): void {
+    if (this.smartAssignmentReadOnly()) {
+      return;
+    }
     this.smartAssignmentLocation.set(latlng);
     this.smartAssignmentState.set('idle');
     this.smartAssignmentResult.set(null);

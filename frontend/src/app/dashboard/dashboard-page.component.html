@@ -141,6 +141,8 @@
             type="button"
             class="button button--outline"
             (click)="openSmartAssignmentMap()"
+            [disabled]="smartAssignmentLoading() || smartAssignmentReadOnly()"
+            [attr.aria-disabled]="smartAssignmentReadOnly() ? 'true' : null"
             aria-label="Choisir la position de l’intervention sur la carte">
             Choisir sur la carte
           </button>
@@ -198,7 +200,8 @@
             type="button"
             class="button button--primary"
             (click)="onSmartAssignmentSubmit()"
-            [disabled]="smartAssignmentLoading() || !smartAssignmentHasLocation()"
+            [disabled]="smartAssignmentLoading() || !smartAssignmentHasLocation() || smartAssignmentReadOnly()"
+            [attr.aria-disabled]="smartAssignmentReadOnly() ? 'true' : null"
             aria-label="Lancer une recommandation de technicien">
             <span class="smart-assignment__button-spinner" *ngIf="smartAssignmentLoading()" aria-hidden="true"></span>
             Recommander
