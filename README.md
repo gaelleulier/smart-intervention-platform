@@ -4,6 +4,8 @@ A modern web platform to orchestrate field interventions (work orders, schedulin
 
 > Development mode: **Postgres runs in Docker**; **backend** and **frontend** run locally for fast feedback.
 
+> ℹ️ **Comptes de démonstration** : la page de connexion propose deux CTA (“Essayer en tant que dispatch/technicien”). Ils pré-remplissent des comptes seeds (mot de passe `Admin123!`) afin de faciliter les démos. Désactivez ces raccourcis en production si nécessaire (supprimez les boutons dans `frontend/src/app/auth/login.component.*`).
+
 ---
 
 ## Architecture
@@ -92,6 +94,8 @@ POSTGRES_HOST=localhost
 SPRING_PROFILES_ACTIVE=dev
 BACKEND_PORT=8080
 FRONTEND_PORT=4200
+
+> Pour un déploiement, prévoyez un fichier dédié (`.env.prod`) avec des secrets forts et des ports adaptés ; les sections suivantes couvrent le processus.
 ```
 
 ---
@@ -200,6 +204,56 @@ db-logs        # (optional) Tail Postgres container logs
 
 ---
 
+## Production Deployment
+
+1. **Construire les artefacts**
+
+   ```bash
+   cd backend
+   ./mvnw -DskipTests package
+   cd ../frontend
+   npm ci
+   npm run build -- --configuration=production
+   ```
+
+2. **Configurer l’environnement** (ex. `.env.prod`)
+
+   ```env
+   POSTGRES_USER=sip_user
+   POSTGRES_PASSWORD=<mot_de_passe_solide>
+   POSTGRES_DB=sip_db
+   POSTGRES_HOST=db
+   POSTGRES_PORT=5432
+   SPRING_PROFILES_ACTIVE=prod
+   JWT_SECRET=<cle_signée>
+   BACKEND_PORT=8080
+   FRONTEND_PORT=80
+   ```
+
+3. **Lancer l’orchestration**
+
+   ```bash
+   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+   ```
+
+   Adaptez `docker-compose.prod.yml` (volumes, proxy, SSL…).
+
+4. **Vérifications**
+
+   ```bash
+   curl -s http://<host>:8080/api/health | jq
+   # Frontend : http://<host>
+   ```
+
+5. **Durcir la prod**
+
+   - Nettoyez les comptes de démo inutiles (Flyway ou scripts SQL).
+   - Supprimez les CTA “Essayer en tant que…” si vous ne voulez pas proposer de login rapide.
+   - Ajoutez un proxy HTTP(S), un WAF, de la supervision, etc.
+
+
+---
+
 ## Database & Migrations
 
 * Migrations live in `backend/src/main/resources/db/migration` and are applied by **Flyway** on backend startup.
@@ -243,7 +297,16 @@ make db-cli
 
 ## CI/CD (GitLab)
 
-A GitLab pipeline is planned for future milestones (build, test, containerize, deploy). Compose production files are provided as a starting point.
+Le pipeline `.gitlab-ci.yml` fournit quatre jobs :
+
+| Stage | Job | Description |
+|-------|-----|-------------|
+| test  | `backend:test`   | Maven + Postgres service, exécution des tests JUnit |
+| test  | `frontend:test`  | `npm ci`, tests Angular headless et build dev |
+| build | `backend:build`  | Package du jar Spring Boot (tests skip) |
+| build | `frontend:build` | Build Angular en configuration production |
+
+Les caches Maven/NPM sont mutualisés par branche (`$CI_COMMIT_REF_SLUG`). Ajoutez un stage `deploy` selon votre cible (Kubernetes, VM, etc.).
 
 ---
 
