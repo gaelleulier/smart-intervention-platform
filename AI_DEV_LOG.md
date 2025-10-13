@@ -254,3 +254,13 @@ The goal is to improve responsiveness, traceability, and operational efficiency 
   - [ ] Update GitLab CI (.gitlab-ci.yml) IF needed
 - Notes:
   - Pas de scripts de tests disponibles (`npm run lint` absent).
+
+### 2025-10-13-T:16:49:04 - Stabiliser la carte de recommandation IA
+- Summary:
+  - Réinitialise complètement la carte Leaflet du simulateur Smart Assignment lors d’un reset ou de la fermeture du drawer pour permettre une nouvelle sélection sans rechargement de page.
+- Savepoints:
+  - None
+- Required updates:
+  - [ ] Update GitLab CI (.gitlab-ci.yml) IF needed
+- Notes:
+  - Pas de scripts de tests disponibles (`npm run lint` absent).

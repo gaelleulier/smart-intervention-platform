@@ -632,6 +632,12 @@ export class DashboardPageComponent implements OnInit {
     this.smartAssignmentState.set('idle');
     this.smartAssignmentLocation.set(null);
     this.clearSmartAssignmentToast();
+    if (this.smartAssignmentMapInstance) {
+      this.smartAssignmentMapInstance.remove();
+      this.smartAssignmentMapInstance = null;
+      this.smartAssignmentMarkerLayer = null;
+      this.smartAssignmentLocationMarker = null;
+    }
   }
 
   protected smartAssignmentScore(): number {
@@ -733,6 +739,12 @@ export class DashboardPageComponent implements OnInit {
 
   protected closeSmartAssignmentMap(): void {
     this.smartAssignmentMapOpen.set(false);
+    if (this.smartAssignmentMapInstance) {
+      this.smartAssignmentMapInstance.remove();
+      this.smartAssignmentMapInstance = null;
+      this.smartAssignmentMarkerLayer = null;
+      this.smartAssignmentLocationMarker = null;
+    }
   }
 
   private async ensureSmartAssignmentMapInitialized(): Promise<void> {
