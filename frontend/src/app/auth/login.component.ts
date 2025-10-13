@@ -19,6 +19,15 @@ export class LoginComponent {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly demoPassword = 'Admin123!';
+  private readonly dispatcherDemoAccounts = ['lucie.fabre@sip.local', 'pierre.leroy@sip.local'];
+  private readonly technicianDemoAccounts = [
+    'alexandre.martin@sip.local',
+    'lea.bernard@sip.local',
+    'yacine.benali@sip.local',
+    'sophia.renard@sip.local',
+    'nicolas.petit@sip.local'
+  ];
 
   protected readonly loginForm = this.fb.nonNullable.group({
     email: ['', [Validators.required, Validators.email]],
@@ -45,6 +54,20 @@ export class LoginComponent {
     } finally {
       this.loading.set(false);
     }
+  }
+
+  protected loginAsDemo(role: 'dispatcher' | 'technician'): void {
+    if (this.loading()) {
+      return;
+    }
+    const pool =
+      role === 'dispatcher' ? this.dispatcherDemoAccounts : this.technicianDemoAccounts;
+    if (!pool.length) {
+      return;
+    }
+    const email = pool[Math.floor(Math.random() * pool.length)];
+    this.loginForm.setValue({ email, password: this.demoPassword });
+    void this.onSubmit();
   }
 
   private describeError(error: unknown): string {

@@ -219,3 +219,15 @@ The goal is to improve responsiveness, traceability, and operational efficiency 
   - [ ] Update GitLab CI (.gitlab-ci.yml) IF needed
 - Notes:
   - Scripts `npm run lint` absents; pas de tests exécutés.
+
+### 2025-10-13-T:16:08:29 - Add demo login shortcuts & banner
+- Summary:
+  - Ajouté deux CTA “Try as Dispatcher/Technician” sur l’écran de connexion : sélection aléatoire de comptes demo, pré-remplissage puis soumission automatique avec le mot de passe de référence.
+  - Stylisé les boutons (primary/ghost, hover/focus) et conservé un formulaire accessible.
+  - Affiché un bandeau “DEMO MODE — You are signed in as …” dans l’app shell après authentification pour rappeler le rôle/email actif.
+- Savepoints:
+  - None
+- Required updates:
+  - [ ] Update GitLab CI (.gitlab-ci.yml) IF needed
+- Notes:
+  - Scripts `npm run lint` absents; pas de tests exécutés.

@@ -11,8 +11,30 @@
       <input type="password" formControlName="password" placeholder="Password" autocomplete="current-password" />
     </label>
     <div *ngIf="error() as err" class="alert alert--error">{{ err }}</div>
+    <section class="login__demo" aria-labelledby="demo-login-heading">
+      <h2 id="demo-login-heading">Try demo accounts</h2>
+      <p class="login__demo-subtitle">Connect instantly with sample roles.</p>
+      <div class="login__demo-buttons">
+        <button
+          type="button"
+          class="button button--primary"
+          (click)="loginAsDemo('dispatcher')"
+          [disabled]="loading()"
+          aria-label="Sign in as a dispatcher demo account">
+          Try as Dispatcher
+        </button>
+        <button
+          type="button"
+          class="button button--ghost"
+          (click)="loginAsDemo('technician')"
+          [disabled]="loading()"
+          aria-label="Sign in as a technician demo account">
+          Try as Technician
+        </button>
+      </div>
+    </section>
     <div class="login__actions">
-      <button type="submit" class="button" [disabled]="loading()">Log in</button>
+      <button type="submit" class="button button--primary" [disabled]="loading()">Log in</button>
     </div>
   </form>
 </section>
