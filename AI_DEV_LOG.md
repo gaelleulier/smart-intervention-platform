@@ -195,3 +195,27 @@ The goal is to improve responsiveness, traceability, and operational efficiency 
   - [ ] Update GitLab CI (.gitlab-ci.yml) IF needed
 - Notes:
   - `./mvnw test`
+
+### 2025-10-13-T:15:30:21 - Compact technician recommendation card
+- Summary:
+  - Refactored the AI “Technician Recommendation” card to a fixed-height layout with a conic score ring, compact identity summary, and contextual chips (distance, charge, compétence).
+  - Introduced a dedicated location chip and “Choisir sur la carte” drawer that now hosts the full map selection, rationale, and alternative technicians with quick assign actions.
+  - Modernized the action buttons (Recommander, Appliquer, Réinitialiser) with consistent hover/focus states and added a toast confirmation on assignment.
+- Savepoints:
+  - None
+- Required updates:
+  - [ ] Update GitLab CI (.gitlab-ci.yml) IF needed
+- Notes:
+  - Scripts `npm run lint` absent; no frontend tests executed.
+
+### 2025-10-13-T:15:48:00 - Refine smart assignment interactions
+- Summary:
+  - Retiré le bouton “Appliquer” de la carte principale et déplacé l’action d’assignation dans le drawer.
+  - Centré le drawer de sélection sur l’écran avec un bouton “Valider la recommandation” bleu et un CTA dédié par technicien.
+  - Conservé la cohérence stylistique tout en évitant toute modification du reste de la carte.
+- Savepoints:
+  - None
+- Required updates:
+  - [ ] Update GitLab CI (.gitlab-ci.yml) IF needed
+- Notes:
+  - Scripts `npm run lint` absents; pas de tests exécutés.

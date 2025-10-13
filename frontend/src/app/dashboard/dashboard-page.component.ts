@@ -13,12 +13,19 @@ import {
   signal
 } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { HttpErrorResponse } from '@angular/common/http';
 
 import {
   DashboardSummaryResponse,
   InterventionMapMarker,
   StatusTrendPoint,
-  TechnicianLoadResponse
+  TechnicianLoadResponse,
+  AiInsightResponse,
+  ForecastResponse,
+  SmartAssignmentRequestPayload,
+  SmartAssignmentResponsePayload,
+  SmartAssignmentCandidate
 } from './dashboard.models';
 
 type SummaryMetricKey = 'scheduledCount' | 'inProgressCount' | 'completedCount' | 'validatedCount';
@@ -32,7 +39,7 @@ Chart.register(...registerables);
 @Component({
   selector: 'app-dashboard-page',
   standalone: true,
-  imports: [CommonModule, DatePipe, NgChartsModule],
+  imports: [CommonModule, DatePipe, NgChartsModule, ReactiveFormsModule],
   templateUrl: './dashboard-page.component.html',
   styleUrl: './dashboard-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -44,15 +51,20 @@ export class DashboardPageComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   private readonly datePipe = inject(DatePipe);
   private readonly documentRef = inject(DOCUMENT);
+  private readonly fb = inject(FormBuilder);
   private readonly isBrowser = isPlatformBrowser(this.platformId);
   private readonly shellState = inject(ShellStateService);
 
   private mapContainerEl?: HTMLDivElement;
+  private smartMapContainerEl?: HTMLDivElement;
 
   private leaflet: typeof import('leaflet') | null = null;
   private mapInstance: import('leaflet').Map | null = null;
   private markerLayer: import('leaflet').LayerGroup | null = null;
   private defaultIcon: import('leaflet').Icon | null = null;
+  private smartAssignmentMapInstance: import('leaflet').Map | null = null;
+  private smartAssignmentMarkerLayer: import('leaflet').LayerGroup | null = null;
+  private smartAssignmentLocationMarker: import('leaflet').Marker | null = null;
   private readonly defaultCenter: [number, number] = [46.603354, 1.888334];
   private readonly defaultZoom = 6;
 
@@ -62,6 +74,17 @@ export class DashboardPageComponent implements OnInit {
   protected readonly mapMarkers = signal<InterventionMapMarker[]>([]);
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
+  protected readonly aiInsights = signal<AiInsightResponse | null>(null);
+  protected readonly aiInsightsError = signal<string | null>(null);
+  protected readonly forecast = signal<ForecastResponse | null>(null);
+  protected readonly forecastError = signal<string | null>(null);
+  protected readonly smartAssignmentResult = signal<SmartAssignmentResponsePayload | null>(null);
+  protected readonly smartAssignmentLoading = signal(false);
+  protected readonly smartAssignmentError = signal<string | null>(null);
+  protected readonly smartAssignmentState = signal<'idle' | 'thinking' | 'result'>('idle');
+  protected readonly smartAssignmentMapOpen = signal(false);
+  protected readonly smartAssignmentLocation = signal<{ lat: number; lng: number } | null>(null);
+  protected readonly smartAssignmentToast = signal<string | null>(null);
   protected readonly statusKpis: ReadonlyArray<{ key: SummaryMetricKey; label: string }> = [
     { key: 'scheduledCount', label: 'Planifiées' },
     { key: 'inProgressCount', label: 'En cours' },
@@ -356,6 +379,63 @@ export class DashboardPageComponent implements OnInit {
     }
   };
 
+  protected readonly forecastChartData = computed<ChartConfiguration<'line'>['data']>(() => {
+    const response = this.forecast();
+    if (!response || !response.points.length) {
+      return { labels: [], datasets: [] };
+    }
+    const labels = response.points.map(point => this.formatDateLabel(point.date));
+    const data = response.points.map(point => point.predictedCount);
+    return {
+      labels,
+      datasets: [
+        {
+          label: 'Prévision (7 jours)',
+          data,
+          borderColor: '#8b5cf6',
+          backgroundColor: 'rgba(139, 92, 246, 0.18)',
+          tension: 0.3,
+          fill: 'origin'
+        }
+      ]
+    };
+  });
+
+  protected readonly forecastChartOptions: ChartOptions<'line'> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: { precision: 0 },
+        grid: { color: 'rgba(148, 163, 184, 0.2)' }
+      },
+      x: { grid: { display: false } }
+    },
+    plugins: {
+      legend: { display: false },
+      tooltip: { intersect: false }
+    }
+  };
+
+  protected readonly smartAssignmentForm = this.fb.group({
+    title: ['', [Validators.maxLength(160)]],
+    latitude: [null as number | null, [Validators.min(-90), Validators.max(90)]],
+    longitude: [null as number | null, [Validators.min(-180), Validators.max(180)]]
+  });
+  protected readonly primaryInsightHighlight = computed(() => this.aiInsights()?.highlights?.[0] ?? null);
+  protected readonly secondaryInsightHighlights = computed(() => this.aiInsights()?.highlights?.slice(1) ?? []);
+  protected readonly smartAssignmentLocationLabel = computed(() => {
+    const loc = this.smartAssignmentLocation();
+    if (!loc) {
+      return '';
+    }
+    return `${loc.lat.toFixed(3)}°, ${loc.lng.toFixed(3)}°`;
+  });
+  protected readonly smartAssignmentHasLocation = computed(() => this.smartAssignmentLocation() !== null);
+
+  private smartAssignmentToastTimer: ReturnType<typeof setTimeout> | null = null;
+
   constructor() {
     effect(() => {
       if (this.shellState.collapsed()) {
@@ -369,6 +449,31 @@ export class DashboardPageComponent implements OnInit {
       this.mapInstance?.remove();
       this.mapInstance = null;
       this.markerLayer = null;
+      this.smartAssignmentMapInstance?.remove();
+      this.smartAssignmentMapInstance = null;
+      this.smartAssignmentMarkerLayer = null;
+      this.smartAssignmentLocationMarker = null;
+    });
+
+    effect(() => {
+      const loc = this.smartAssignmentLocation();
+      if (loc) {
+        this.smartAssignmentForm.patchValue({ latitude: loc.lat, longitude: loc.lng }, { emitEvent: false });
+      } else {
+        this.smartAssignmentForm.patchValue({ latitude: null, longitude: null }, { emitEvent: false });
+      }
+      this.refreshSmartAssignmentMapMarkers(this.smartAssignmentResult(), loc);
+    });
+
+    effect(() => {
+      const result = this.smartAssignmentResult();
+      this.refreshSmartAssignmentMapMarkers(result, this.smartAssignmentLocation());
+    });
+
+    effect(() => {
+      if (this.smartAssignmentMapOpen()) {
+        void this.ensureSmartAssignmentMapInitialized();
+      }
     });
   }
 
@@ -387,11 +492,28 @@ export class DashboardPageComponent implements OnInit {
     }
   }
 
+  @ViewChild('smartMapContainer', { static: false })
+  set smartMapContainer(ref: ElementRef<HTMLDivElement> | undefined) {
+    if (!this.isBrowser) {
+      return;
+    }
+    this.smartMapContainerEl = ref?.nativeElement;
+    if (this.smartAssignmentMapOpen()) {
+      void this.ensureSmartAssignmentMapInitialized();
+    }
+  }
+
   async refresh(): Promise<void> {
     this.loading.set(true);
     this.error.set(null);
     try {
-      await Promise.all([this.loadSummary(), this.loadTrends(), this.loadTechnicianLoad()]);
+      await Promise.all([
+        this.loadSummary(),
+        this.loadTrends(),
+        this.loadTechnicianLoad(),
+        this.loadAiInsights(),
+        this.loadForecast()
+      ]);
       await this.ensureMapInitialized();
       await this.loadMapMarkers();
     } catch (error) {
@@ -403,6 +525,163 @@ export class DashboardPageComponent implements OnInit {
 
   protected summaryValue(summary: DashboardSummaryResponse, key: SummaryMetricKey): number {
     return summary[key];
+  }
+
+  protected trendLabel(direction: string | null | undefined): string {
+    switch ((direction ?? '').toUpperCase()) {
+      case 'UP':
+        return 'En hausse';
+      case 'DOWN':
+        return 'En baisse';
+      default:
+        return 'Stable';
+    }
+  }
+
+  protected trendClass(direction: string | null | undefined): string {
+    switch ((direction ?? '').toUpperCase()) {
+      case 'UP':
+        return 'trend--up';
+      case 'DOWN':
+        return 'trend--down';
+      default:
+        return 'trend--flat';
+    }
+  }
+
+  protected trendIcon(direction: string | null | undefined): string {
+    switch ((direction ?? '').toUpperCase()) {
+      case 'UP':
+        return '▲';
+      case 'DOWN':
+        return '▼';
+      default:
+        return '◆';
+    }
+  }
+
+  protected async onSmartAssignmentSubmit(): Promise<void> {
+    if (this.smartAssignmentLoading()) {
+      return;
+    }
+    const location = this.smartAssignmentLocation();
+    if (!location) {
+      this.smartAssignmentError.set('Sélectionnez un emplacement via « Choisir sur la carte ».');
+      this.smartAssignmentState.set('idle');
+      return;
+    }
+    const generatedTitle = this.composeSmartAssignmentTitle();
+    this.smartAssignmentForm.patchValue(
+      { title: generatedTitle, latitude: location.lat, longitude: location.lng },
+      { emitEvent: false }
+    );
+    const values = this.smartAssignmentForm.getRawValue();
+    const payload: SmartAssignmentRequestPayload = {
+      title: generatedTitle,
+      latitude: values.latitude ?? undefined,
+      longitude: values.longitude ?? undefined
+    };
+    this.smartAssignmentLoading.set(true);
+    this.smartAssignmentState.set('thinking');
+    this.smartAssignmentError.set(null);
+    this.smartAssignmentResult.set(null);
+    const startedAt = Date.now();
+    const minDelay = 1200;
+    try {
+      const responsePromise = firstValueFrom(this.dashboardService.recommendTechnician(payload));
+      const response = await responsePromise;
+      const elapsed = Date.now() - startedAt;
+      if (elapsed < minDelay) {
+        await new Promise(resolve => setTimeout(resolve, minDelay - elapsed));
+      }
+      this.smartAssignmentResult.set(response);
+      this.smartAssignmentState.set('result');
+    } catch (error) {
+      this.smartAssignmentError.set(this.describeError(error));
+      this.smartAssignmentState.set('idle');
+      this.smartAssignmentResult.set(null);
+    } finally {
+      this.smartAssignmentLoading.set(false);
+    }
+  }
+
+  protected resetSmartAssignment(): void {
+    this.smartAssignmentForm.reset({
+      title: '',
+      latitude: null,
+      longitude: null
+    });
+    this.smartAssignmentResult.set(null);
+    this.smartAssignmentError.set(null);
+    this.smartAssignmentState.set('idle');
+    this.smartAssignmentLocation.set(null);
+    this.clearSmartAssignmentToast();
+  }
+
+  protected smartAssignmentScore(): number {
+    const result = this.smartAssignmentResult();
+    if (!result) {
+      return 0;
+    }
+    return Math.round(result.recommended.overallScore * 100);
+  }
+
+  protected smartAssignmentRingColor(): string {
+    const score = this.smartAssignmentScore();
+    if (score >= 75) {
+      return '#16a34a';
+    }
+    if (score >= 45) {
+      return '#f59e0b';
+    }
+    return '#dc2626';
+  }
+
+  protected workloadLabel(openAssignments: number): string {
+    if (openAssignments <= 1) {
+      return 'faible';
+    }
+    if (openAssignments <= 3) {
+      return 'modérée';
+    }
+    return 'élevée';
+  }
+
+  protected skillLabel(matches: number): string {
+    if (matches >= 5) {
+      return 'élevée';
+    }
+    if (matches >= 2) {
+      return 'moyenne';
+    }
+    return 'à confirmer';
+  }
+
+  protected isSmartAssignmentThinking(): boolean {
+    return this.smartAssignmentState() === 'thinking';
+  }
+
+  protected applyRecommendation(candidate?: SmartAssignmentCandidate): void {
+    const current = this.smartAssignmentResult();
+    if (!current) {
+      return;
+    }
+    const selected = candidate ?? current.recommended;
+    const updatedAlternatives = current.alternatives
+      .filter(alt => alt.technicianId !== selected.technicianId)
+      .concat(
+        candidate && candidate.technicianId !== current.recommended.technicianId
+          ? [current.recommended]
+          : []
+      );
+    this.smartAssignmentResult.set({
+      ...current,
+      recommended: selected,
+      alternatives: updatedAlternatives
+    });
+    this.smartAssignmentState.set('result');
+    this.pushSmartAssignmentToast(`Technicien ${selected.fullName} assigné avec succès.`);
+    this.closeSmartAssignmentMap();
   }
 
   private async loadSummary(): Promise<void> {
@@ -426,14 +705,98 @@ export class DashboardPageComponent implements OnInit {
     this.updateMapMarkers(response);
   }
 
+  protected openSmartAssignmentMap(): void {
+    this.smartAssignmentMapOpen.set(true);
+  }
+
+  protected closeSmartAssignmentMap(): void {
+    this.smartAssignmentMapOpen.set(false);
+  }
+
+  private async ensureSmartAssignmentMapInitialized(): Promise<void> {
+    if (!this.isBrowser || !this.smartAssignmentMapOpen() || !this.smartMapContainerEl) {
+      return;
+    }
+    const L = await this.loadLeaflet();
+    if (!this.smartAssignmentMapInstance) {
+      if (!this.defaultIcon) {
+        const iconRetinaUrl = this.resolveAssetUrl('assets/leaflet/marker-icon-2x.png');
+        const iconUrl = this.resolveAssetUrl('assets/leaflet/marker-icon.png');
+        const shadowUrl = this.resolveAssetUrl('assets/leaflet/marker-shadow.png');
+        this.defaultIcon = L.icon({
+          iconRetinaUrl,
+          iconUrl,
+          shadowUrl,
+          iconSize: [25, 41],
+          iconAnchor: [12, 41],
+          popupAnchor: [1, -34],
+          shadowSize: [41, 41]
+        });
+      }
+
+      this.smartAssignmentMapInstance = L.map(this.smartMapContainerEl, {
+        center: this.smartAssignmentLocation() ?? { lat: this.defaultCenter[0], lng: this.defaultCenter[1] },
+        zoom: this.defaultZoom,
+        zoomControl: true,
+        attributionControl: false
+      });
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(this.smartAssignmentMapInstance);
+
+      this.smartAssignmentMarkerLayer = L.layerGroup().addTo(this.smartAssignmentMapInstance);
+      this.smartAssignmentMapInstance.on('click', event => {
+        this.onSmartAssignmentMapClick(event.latlng);
+      });
+    }
+
+    const location = this.smartAssignmentLocation();
+    if (location) {
+      this.smartAssignmentMapInstance.setView(location, 12);
+    } else {
+      this.smartAssignmentMapInstance.setView({ lat: this.defaultCenter[0], lng: this.defaultCenter[1] }, this.defaultZoom);
+    }
+    this.refreshSmartAssignmentMapMarkers(this.smartAssignmentResult(), this.smartAssignmentLocation());
+    setTimeout(() => this.smartAssignmentMapInstance?.invalidateSize(), 80);
+  }
+
+  private onSmartAssignmentMapClick(latlng: { lat: number; lng: number }): void {
+    this.smartAssignmentLocation.set(latlng);
+    this.smartAssignmentState.set('idle');
+    this.smartAssignmentResult.set(null);
+    this.smartAssignmentError.set(null);
+  }
+
+  private async loadAiInsights(): Promise<void> {
+    try {
+      const response = await firstValueFrom(this.dashboardService.getAiInsights());
+      this.aiInsights.set(response);
+      this.aiInsightsError.set(null);
+    } catch (error) {
+      this.aiInsights.set(null);
+      this.aiInsightsError.set(this.describeError(error));
+    }
+  }
+
+  private async loadForecast(): Promise<void> {
+    try {
+      const response = await firstValueFrom(this.dashboardService.getForecast());
+      this.forecast.set(response);
+      this.forecastError.set(null);
+    } catch (error) {
+      this.forecast.set(null);
+      this.forecastError.set(this.describeError(error));
+    }
+  }
+
   private async ensureMapInitialized(): Promise<void> {
     if (!this.isBrowser || this.mapInstance || !this.mapContainerEl) {
       return;
     }
 
-    const leafletModule = await import('leaflet');
-    const L = leafletModule.default ?? leafletModule;
-    this.leaflet = L;
+    const L = await this.loadLeaflet();
 
     const iconRetinaUrl = this.resolveAssetUrl('assets/leaflet/marker-icon-2x.png');
     const iconUrl = this.resolveAssetUrl('assets/leaflet/marker-icon.png');
@@ -466,6 +829,15 @@ export class DashboardPageComponent implements OnInit {
     setTimeout(() => this.mapInstance?.invalidateSize(), 0);
   }
 
+  private async loadLeaflet(): Promise<typeof import('leaflet')> {
+    if (this.leaflet) {
+      return this.leaflet;
+    }
+    const module = await import('leaflet');
+    this.leaflet = module.default ?? module;
+    return this.leaflet;
+  }
+
   private updateMapMarkers(markers: InterventionMapMarker[]): void {
     if (!this.mapInstance || !this.markerLayer || !this.leaflet) {
       return;
@@ -494,6 +866,102 @@ export class DashboardPageComponent implements OnInit {
     this.mapInstance.invalidateSize();
   }
 
+  private refreshSmartAssignmentMapMarkers(
+          result: SmartAssignmentResponsePayload | null,
+          location: { lat: number; lng: number } | null): void {
+    if (!this.smartAssignmentMapInstance || !this.smartAssignmentMarkerLayer) {
+      return;
+    }
+    const layer = this.smartAssignmentMarkerLayer;
+    layer.clearLayers();
+
+    const L = this.leaflet;
+    if (!L) {
+      return;
+    }
+
+    if (location) {
+      if (!this.smartAssignmentLocationMarker) {
+        this.smartAssignmentLocationMarker = L.marker(location, {
+          icon: this.defaultIcon ?? undefined
+        });
+      } else {
+        this.smartAssignmentLocationMarker.setLatLng(location);
+      }
+      this.smartAssignmentLocationMarker.addTo(layer).bindPopup('Lieu de l\'intervention');
+    } else if (this.smartAssignmentLocationMarker) {
+      this.smartAssignmentLocationMarker.remove();
+      this.smartAssignmentLocationMarker = null;
+    }
+
+    if (result && location) {
+      const candidates = [result.recommended, ...result.alternatives];
+      const baseAngle = 45;
+      const step = candidates.length > 0 ? 360 / candidates.length : 0;
+      candidates.forEach((candidate, index) => {
+        const angle = baseAngle + step * index;
+        const dist = Math.max(candidate.distanceKm ?? 0.4, 0.3);
+        const coord = this.computeOffsetCoordinate(location, dist, angle);
+        const isRecommended = index === 0;
+        L.circleMarker(coord, {
+          radius: isRecommended ? 11 : 9,
+          color: isRecommended ? '#2563eb' : '#7c3aed',
+          weight: 3,
+          opacity: 0.9,
+          fillOpacity: 0.4,
+          fillColor: isRecommended ? 'rgba(37,99,235,0.25)' : 'rgba(124,58,237,0.25)'
+        })
+            .addTo(layer)
+            .bindPopup(`<strong>${candidate.fullName}</strong><br/>Score: ${(candidate.overallScore * 100).toFixed(1)}%`);
+      });
+    } else if (location) {
+      const technicians = this.technicianLoad().slice(0, 3);
+      technicians.forEach((tech, index) => {
+        const angle = 60 + index * 150;
+        const dist = 0.6 + index * 0.25;
+        const coord = this.computeOffsetCoordinate(location, dist, angle);
+        L.circleMarker(coord, {
+          radius: 8,
+          color: '#38bdf8',
+          weight: 2,
+          opacity: 0.85,
+          fillOpacity: 0.3,
+          fillColor: 'rgba(14,165,233,0.25)'
+        })
+                .addTo(layer)
+                .bindPopup(`<strong>${tech.technicianName ?? tech.technicianEmail}</strong><br/>Charge: ${tech.openCount}`);
+      });
+    }
+
+    if (location && this.smartAssignmentMapInstance) {
+      this.smartAssignmentMapInstance.panTo(location, { animate: true });
+    }
+  }
+
+  private computeOffsetCoordinate(base: { lat: number; lng: number }, distanceKm: number, angleDeg: number) {
+    const earthRadiusKm = 6371;
+    const angularDistance = distanceKm / earthRadiusKm;
+    const bearing = (angleDeg * Math.PI) / 180;
+    const lat1 = (base.lat * Math.PI) / 180;
+    const lon1 = (base.lng * Math.PI) / 180;
+
+    const sinLat1 = Math.sin(lat1);
+    const cosLat1 = Math.cos(lat1);
+    const sinAngular = Math.sin(angularDistance);
+    const cosAngular = Math.cos(angularDistance);
+
+    const lat2 = Math.asin(sinLat1 * cosAngular + cosLat1 * sinAngular * Math.cos(bearing));
+    const lon2 =
+            lon1 + Math.atan2(
+                    Math.sin(bearing) * sinAngular * cosLat1,
+                    cosAngular - sinLat1 * Math.sin(lat2));
+
+    return {
+      lat: (lat2 * 180) / Math.PI,
+      lng: ((lon2 * 180) / Math.PI + 540) % 360 - 180
+    };
+  }
+
   private buildPopup(marker: InterventionMapMarker): string {
     const updatedAt = this.datePipe.transform(marker.updatedAt, 'medium') ?? 'N/A';
     const plannedAt = marker.plannedAt ? this.datePipe.transform(marker.plannedAt, 'medium') : null;
@@ -510,6 +978,10 @@ export class DashboardPageComponent implements OnInit {
   }
 
   private describeError(error: unknown): string {
+    if (error instanceof HttpErrorResponse) {
+      const detail = (error.error as { detail?: string })?.detail ?? error.message;
+      return detail || 'Requête échouée.';
+    }
     if (error instanceof Error) {
       return error.message;
     }
@@ -523,6 +995,36 @@ export class DashboardPageComponent implements OnInit {
       COMPLETED: 0,
       VALIDATED: 0
     };
+  }
+
+  private composeSmartAssignmentTitle(): string {
+    const label = this.smartAssignmentLocationLabel();
+    if (label) {
+      return `Intervention ${label}`;
+    }
+    return 'Intervention assistée par IA';
+  }
+
+  private pushSmartAssignmentToast(message: string, duration = 3200): void {
+    if (!this.isBrowser) {
+      return;
+    }
+    this.smartAssignmentToast.set(message);
+    if (this.smartAssignmentToastTimer) {
+      clearTimeout(this.smartAssignmentToastTimer);
+    }
+    this.smartAssignmentToastTimer = setTimeout(() => {
+      this.smartAssignmentToast.set(null);
+      this.smartAssignmentToastTimer = null;
+    }, duration);
+  }
+
+  private clearSmartAssignmentToast(): void {
+    if (this.smartAssignmentToastTimer) {
+      clearTimeout(this.smartAssignmentToastTimer);
+      this.smartAssignmentToastTimer = null;
+    }
+    this.smartAssignmentToast.set(null);
   }
 
   private formatDateLabel(dateStr: string): string {
