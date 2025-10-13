@@ -93,53 +93,7 @@
   background: linear-gradient(135deg, #1d4ed8 0%, #4338ca 100%);
 }
 
-.button--ghost {
-  background: rgba(37, 99, 235, 0.08);
-  color: #1d4ed8;
-  border: 1px solid rgba(37, 99, 235, 0.3);
-  box-shadow: none;
-}
-
-.button--ghost:hover:not(:disabled),
-.button--ghost:focus-visible:not(:disabled) {
-  background: rgba(37, 99, 235, 0.14);
-}
-
 .button:focus-visible {
   outline: 2px solid rgba(37, 99, 235, 0.3);
   outline-offset: 2px;
-}
-
-.login__demo {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  padding: 1rem;
-  border-radius: 0.9rem;
-  background: rgba(37, 99, 235, 0.06);
-  border: 1px solid rgba(37, 99, 235, 0.12);
-}
-
-.login__demo h2 {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-  color: #1f2937;
-}
-
-.login__demo-subtitle {
-  margin: 0;
-  font-size: 0.85rem;
-  color: #4b5563;
-}
-
-.login__demo-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-}
-
-.login__demo-buttons .button {
-  flex: 1 1 140px;
-  padding: 0.6rem 1rem;
 }
