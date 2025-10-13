@@ -242,3 +242,15 @@ The goal is to improve responsiveness, traceability, and operational efficiency 
   - [ ] Update GitLab CI (.gitlab-ci.yml) IF needed
 - Notes:
   - Tests non exécutés.
+
+### 2025-10-13-T:16:33:30 - Localiser l’interface en français
+- Summary:
+  - Traduit l’ensemble des libellés UI (connexion, tableau de bord, utilisateurs, interventions) en français, y compris placeholders et messages d’erreur.
+  - Harmonisé les badges et bandeaux (mode démo, anneau IA) avec des textes français et remplacé les mentions “N/A” par “N/D”.
+  - Désactivé visuellement les actions d’édition utilisateur pour les rôles DISPATCHER/TECH afin de réserver la modification aux administrateurs.
+- Savepoints:
+  - None
+- Required updates:
+  - [ ] Update GitLab CI (.gitlab-ci.yml) IF needed
+- Notes:
+  - Pas de scripts de tests disponibles (`npm run lint` absent).

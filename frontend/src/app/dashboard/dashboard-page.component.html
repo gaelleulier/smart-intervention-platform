@@ -1,8 +1,8 @@
 <section class="dashboard" [class.dashboard--loading]="loading()">
   <header class="dashboard__header">
     <div>
-      <h2>Smart Intervention Platform</h2>
-      <p>Suivi temps réel des opérations, indicateurs clés et géolocalisation des interventions.</p>
+      <h2>Plateforme Smart Intervention</h2>
+      <p>Suivez en temps réel les opérations, les indicateurs clés et la géolocalisation des interventions.</p>
     </div>
     <button
       type="button"
@@ -24,7 +24,7 @@
       <header>
         <h3>Interventions totales</h3>
         <span class="metric-card__caption">
-          Mise à jour {{ data.lastRefreshedAt ? (data.lastRefreshedAt | date: 'medium') : 'N/A' }}
+          Mise à jour {{ data.lastRefreshedAt ? (data.lastRefreshedAt | date: 'medium') : 'N/D' }}
         </span>
       </header>
       <p class="metric-card__value">{{ data.totalInterventions }}</p>
@@ -41,7 +41,7 @@
         <h3>Durée moyenne</h3>
       </header>
       <p class="metric-card__value">
-        {{ data.averageCompletionSeconds ? (data.averageCompletionSeconds / 60 | number: '1.0-0') + ' min' : 'N/A' }}
+        {{ data.averageCompletionSeconds ? (data.averageCompletionSeconds / 60 | number: '1.0-0') + ' min' : 'N/D' }}
       </p>
       <span class="metric-card__caption">Entre début et validation</span>
     </article>
@@ -50,7 +50,7 @@
         <h3>Taux de validation</h3>
       </header>
       <p class="metric-card__value">
-        {{ data.validationRatio ? (data.validationRatio | number: '1.0-1') + ' %' : 'N/A' }}
+        {{ data.validationRatio ? (data.validationRatio | number: '1.0-1') + ' %' : 'N/D' }}
       </p>
       <span class="metric-card__caption">Rapport validées / terminées</span>
     </article>
@@ -59,16 +59,16 @@
   <section class="dashboard__ai">
     <header class="ai-section__header">
       <span class="ai-section__icon" aria-hidden="true">✨</span>
-      <h3>AI Features</h3>
+      <h3>Fonctionnalités IA</h3>
     </header>
     <div class="ai-grid">
       <article class="card ai-card ai-card--insights ai-fade" [class.card--error]="aiInsightsError()">
         <header>
           <div class="ai-card__title">
             <span class="ai-card__icon" aria-hidden="true">✨</span>
-            <h3>Automatic Insights</h3>
+            <h3>Analyses automatiques</h3>
           </div>
-          <span class="ai-badge">AI generated</span>
+          <span class="ai-badge">Généré par l’IA</span>
         </header>
         <p class="ai-card__intro">Résumé heuristique des tendances quotidiennes.</p>
         <ng-container *ngIf="aiInsights() as insight; else aiFallback">
@@ -125,9 +125,9 @@
         <header>
           <div class="ai-card__title">
             <span class="ai-card__icon" aria-hidden="true">🤖</span>
-            <h3>Technician Recommendation</h3>
+            <h3>Recommandation technicien</h3>
           </div>
-          <span class="ai-badge ai-badge--secondary">Explainable</span>
+          <span class="ai-badge ai-badge--secondary">Explicable</span>
         </header>
         <p class="ai-card__intro">Distance, charge et expérience sont combinées pour suggérer le meilleur technicien.</p>
         <div class="smart-assignment__location" aria-live="polite">
@@ -173,7 +173,7 @@
                 <div class="smart-assignment__chips">
                   <span class="smart-chip">
                     📍
-                    {{ assignment.recommended.distanceKm != null ? (assignment.recommended.distanceKm | number: '1.0-1') + ' km' : 'Distance N/A' }}
+                    {{ assignment.recommended.distanceKm != null ? (assignment.recommended.distanceKm | number: '1.0-1') + ' km' : 'Distance N/D' }}
                   </span>
                   <span class="smart-chip">
                     🧰 Charge {{ workloadLabel(assignment.recommended.openAssignments) }}
@@ -289,7 +289,7 @@
             <ng-container *ngIf="summary() as summaryData">
               <div class="chart__doughnut-overlay">
                 <span class="chart__doughnut-value">
-                  {{ summaryData.validationRatio != null ? (summaryData.validationRatio | number: '1.0-1') + ' %' : 'N/A' }}
+                  {{ summaryData.validationRatio != null ? (summaryData.validationRatio | number: '1.0-1') + ' %' : 'N/D' }}
                 </span>
                 <small>Validation</small>
               </div>

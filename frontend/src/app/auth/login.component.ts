@@ -73,14 +73,14 @@ export class LoginComponent {
   private describeError(error: unknown): string {
     if (error instanceof HttpErrorResponse) {
       if (error.status === 401) {
-        return 'Invalid email or password';
+        return 'Email ou mot de passe invalide';
       }
       const detail = (error.error?.detail as string | undefined) ?? error.message;
-      return detail || 'Authentication failed';
+      return detail || 'Échec de l’authentification';
     }
     if (error instanceof Error) {
-      return error.message || 'Authentication failed';
+      return error.message || 'Échec de l’authentification';
     }
-    return 'Authentication failed';
+    return 'Échec de l’authentification';
   }
 }

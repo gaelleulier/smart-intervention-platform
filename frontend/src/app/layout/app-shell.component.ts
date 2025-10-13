@@ -54,12 +54,12 @@ export class AppShellComponent {
     const normalized = role.trim().toUpperCase();
     switch (normalized) {
       case 'DISPATCHER':
-        return 'Dispatcher';
+        return 'Dispatch';
       case 'TECH':
       case 'TECHNICIAN':
-        return 'Technician';
+        return 'Technicien';
       case 'ADMIN':
-        return 'Admin';
+        return 'Administrateur';
       default:
         return normalized.charAt(0) + normalized.slice(1).toLowerCase();
     }

@@ -391,10 +391,10 @@ export class InterventionsPageComponent implements OnDestroy {
       if (error.error && typeof error.error === 'object' && 'detail' in error.error) {
         return String(error.error.detail);
       }
-      return error.message;
+      return error.message || 'La requête a échoué.';
     }
     if (error instanceof Error) {
-      return error.message;
+      return error.message || 'Une erreur est survenue.';
     }
     return 'Une erreur est survenue.';
   }
