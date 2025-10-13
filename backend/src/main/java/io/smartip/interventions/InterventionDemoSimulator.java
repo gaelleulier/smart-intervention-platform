@@ -138,12 +138,12 @@ public class InterventionDemoSimulator {
 
         int desiredInsertions = random.nextInt(3) + 1;
         Instant runTimestamp = Instant.now(clock);
-        LOGGER.debug(
+        /* LOGGER.debug(
                 "Demo simulator run triggered at {} (maxRows={}, batchSize={})",
                 runTimestamp,
                 maxRows,
                 batchSize);
-
+ */
         List<UserEntity> technicians = userRepository.findByRoleOrderByIdAsc(UserRole.TECH);
         List<Long> technicianIds = technicians.stream()
                 .map(UserEntity::getId)
@@ -163,10 +163,10 @@ public class InterventionDemoSimulator {
 
         long purged = purgeExcessRows();
 
-        LOGGER.debug(
+ /*        LOGGER.debug(
                 "Demo simulator inserted {} intervention(s) and purged {} outdated row(s)",
                 saved.size(),
-                purged);
+                purged); */
     }
 
     private void ensureCreatedAtIndex() {
@@ -273,7 +273,7 @@ public class InterventionDemoSimulator {
             int deleted = jdbcTemplate.update(PURGE_STALE_INTERVENTIONS_SQL, maxRows, batchSize);
             totalDeleted += deleted;
             if (deleted > 0) {
-                LOGGER.debug("Demo simulator purge pass deleted {} row(s) beyond row cap {}", deleted, maxRows);
+                /* LOGGER.debug("Demo simulator purge pass deleted {} row(s) beyond row cap {}", deleted, maxRows); */
             }
             if (deleted < batchSize) {
                 return totalDeleted;

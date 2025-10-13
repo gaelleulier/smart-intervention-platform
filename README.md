@@ -9,10 +9,10 @@ A modern web platform to orchestrate field interventions (work orders, schedulin
 ## Architecture
 
 ```
-+-----------------+        REST        +-----------------------+         +----------------+
-|  Angular (SPA)  |  <-------------->  |  Spring Boot (API)    |  <----> |  Postgres 16   |
-|  http://:4200   |                    |  http://localhost:8080|         |  Docker (dev)  |
-+-----------------+                    +-----------------------+         +----------------+
++---------------------+         REST       +-----------------------+         +----------------+
+|  Angular (SPA)      |  <-------------->  |  Spring Boot (API)    |  <----> |  Postgres 16   |
+|http://localhost:4200|                    |  http://localhost:8080|         |  Docker        |
++---------------------+                    +-----------------------+         +----------------+
 ```
 
 * **Frontend**: Angular (TypeScript), dev server with proxy to `/api`.
