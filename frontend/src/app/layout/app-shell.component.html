@@ -28,6 +28,12 @@
   </aside>
 
   <main class="shell__content">
+    <div class="shell__demo-banner" *ngIf="demoBanner() as banner" role="status" aria-live="polite">
+      <span class="shell__demo-badge">MODE DÉMO</span>
+      <span class="shell__demo-text">
+        Connecté en tant que <strong>{{ banner.roleLabel }}</strong> ({{ banner.email }})
+      </span>
+    </div>
     <router-outlet></router-outlet>
   </main>
 </section>

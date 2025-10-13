@@ -248,7 +248,6 @@ The goal is to improve responsiveness, traceability, and operational efficiency 
   - Traduit l’ensemble des libellés UI (connexion, tableau de bord, utilisateurs, interventions) en français, y compris placeholders et messages d’erreur.
   - Harmonisé les badges et bandeaux (mode démo, anneau IA) avec des textes français et remplacé les mentions “N/A” par “N/D”.
   - Désactivé visuellement les actions d’édition utilisateur pour les rôles DISPATCHER/TECH afin de réserver la modification aux administrateurs.
-  - Supprimé les accès rapides d’authentification “Try as …” et le bandeau Mode Démo pour éviter les raccourcis de connexion en production.
 - Savepoints:
   - None
 - Required updates:
