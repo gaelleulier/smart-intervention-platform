@@ -9,6 +9,8 @@ import io.smartip.interventions.dto.InterventionPageResponse;
 import io.smartip.interventions.dto.InterventionResponse;
 import io.smartip.interventions.dto.UpdateInterventionRequest;
 import io.smartip.interventions.dto.UpdateInterventionStatusRequest;
+import io.smartip.interventions.dto.SmartAssignmentRequest;
+import io.smartip.interventions.dto.SmartAssignmentResponse;
 import jakarta.validation.Valid;
 import java.time.Instant;
 import org.springframework.data.domain.Page;
@@ -16,6 +18,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -34,9 +37,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class InterventionController {
 
     private final InterventionService interventionService;
+    private final SmartAssignmentService smartAssignmentService;
 
-    public InterventionController(InterventionService interventionService) {
+    public InterventionController(InterventionService interventionService, SmartAssignmentService smartAssignmentService) {
         this.interventionService = interventionService;
+        this.smartAssignmentService = smartAssignmentService;
     }
 
     @GetMapping
@@ -105,6 +110,12 @@ public class InterventionController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id) {
         interventionService.deleteIntervention(id);
+    }
+
+    @PostMapping("/recommendation")
+    @PreAuthorize("hasAnyRole('ADMIN','DISPATCHER')")
+    public SmartAssignmentResponse recommendTechnician(@Valid @RequestBody SmartAssignmentRequest request) {
+        return smartAssignmentService.recommendTechnician(request);
     }
 
     private UserRole resolveRole(Authentication authentication) {
