@@ -19,8 +19,10 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -50,6 +52,7 @@ class InterventionDemoSimulatorTest {
     private ArgumentCaptor<List<InterventionEntity>> interventionsCaptor;
 
     private List<UserEntity> technicians;
+    private Map<Long, UserEntity> technicianLookup;
 
     @BeforeEach
     void setUp() {
@@ -57,7 +60,9 @@ class InterventionDemoSimulatorTest {
         technicians = List.of(
                 technician(101L, "amandine.dupont@sip.local", "Amandine Dupont"),
                 technician(102L, "karim.leroy@sip.local", "Karim Leroy"));
+        technicianLookup = technicians.stream().collect(Collectors.toMap(UserEntity::getId, tech -> tech));
         when(userRepository.findByRoleOrderByIdAsc(UserRole.TECH)).thenReturn(technicians);
+        technicianLookup.forEach((id, tech) -> when(userRepository.getReferenceById(id)).thenReturn(tech));
     }
 
     @Test
@@ -92,8 +97,7 @@ class InterventionDemoSimulatorTest {
             assertThat(entity.getTitle()).isNotBlank();
             assertThat(entity.getDescription()).containsIgnoringCase("demo");
             assertThat(entity.getStatus()).isNotNull();
-            assertThat(entity.getAssignmentMode())
-                    .isIn(InterventionAssignmentMode.AUTO, InterventionAssignmentMode.MANUAL);
+            assertThat(entity.getAssignmentMode()).isEqualTo(InterventionAssignmentMode.MANUAL);
             assertThat(entity.getPlannedAt()).isAfterOrEqualTo(lowerBound).isBeforeOrEqualTo(now);
             assertThat(entity.getCreatedAt()).isAfterOrEqualTo(lowerBound).isBeforeOrEqualTo(now);
             assertThat(entity.getUpdatedAt()).isAfterOrEqualTo(entity.getCreatedAt()).isBeforeOrEqualTo(now);

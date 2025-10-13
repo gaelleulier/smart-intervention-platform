@@ -145,14 +145,18 @@ public class InterventionDemoSimulator {
                 batchSize);
 
         List<UserEntity> technicians = userRepository.findByRoleOrderByIdAsc(UserRole.TECH);
-        if (technicians.isEmpty()) {
+        List<Long> technicianIds = technicians.stream()
+                .map(UserEntity::getId)
+                .filter(Objects::nonNull)
+                .toList();
+        if (technicianIds.isEmpty()) {
             LOGGER.warn("Demo simulator aborted run because no technicians with role TECH were found");
             return;
         }
 
         List<InterventionEntity> generated = new ArrayList<>(desiredInsertions);
         for (int i = 0; i < desiredInsertions; i++) {
-            generated.add(buildSyntheticIntervention(runTimestamp, technicians));
+            generated.add(buildSyntheticIntervention(runTimestamp, technicianIds));
         }
 
         LOGGER.info("Demo simulator prepared {} synthetic intervention(s)", generated.size());
@@ -181,7 +185,7 @@ public class InterventionDemoSimulator {
         }
     }
 
-    private InterventionEntity buildSyntheticIntervention(Instant referenceNow, List<UserEntity> technicians) {
+    private InterventionEntity buildSyntheticIntervention(Instant referenceNow, List<Long> technicianIds) {
         Instant lowerBound = referenceNow.minusSeconds(30 * 60);
         Instant plannedAt = randomInstant(lowerBound, referenceNow);
         Instant createdAt = randomInstant(lowerBound, plannedAt);
@@ -192,23 +196,20 @@ public class InterventionDemoSimulator {
         String area = pickRandom(AREAS);
 
         InterventionStatus status = pickRandomStatus();
-        InterventionAssignmentMode assignmentMode =
-                random.nextBoolean() ? InterventionAssignmentMode.AUTO : InterventionAssignmentMode.MANUAL;
-
         InterventionEntity entity = new InterventionEntity();
         entity.setReference(generateReference(createdAt));
         entity.setTitle(priority + " " + type + " - " + area);
         entity.setDescription(
                 "Demo " + type + " scheduled in " + area + " with " + priority.toLowerCase() + " priority.");
         entity.setStatus(status);
-        entity.setAssignmentMode(assignmentMode);
+        entity.setAssignmentMode(InterventionAssignmentMode.MANUAL);
         entity.setPlannedAt(plannedAt);
         applyStatusTimestamps(entity, status, plannedAt, updatedAt);
         entity.setCreatedAt(createdAt);
         entity.setUpdatedAt(updatedAt);
         entity.setLatitude(randomCoordinate(LAT_MIN, LAT_MAX));
         entity.setLongitude(randomCoordinate(LON_MIN, LON_MAX));
-        entity.setTechnician(selectTechnician(technicians));
+        entity.setTechnician(selectTechnician(technicianIds));
         return entity;
     }
 
@@ -290,11 +291,12 @@ public class InterventionDemoSimulator {
         }
     }
 
-    private UserEntity selectTechnician(List<UserEntity> technicians) {
-        if (technicians.isEmpty()) {
+    private UserEntity selectTechnician(List<Long> technicianIds) {
+        if (technicianIds.isEmpty()) {
             return null;
         }
-        int index = random.nextInt(technicians.size());
-        return technicians.get(index);
+        int index = random.nextInt(technicianIds.size());
+        Long technicianId = technicianIds.get(index);
+        return userRepository.getReferenceById(technicianId);
     }
 }

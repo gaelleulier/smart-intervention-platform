@@ -183,3 +183,15 @@ The goal is to improve responsiveness, traceability, and operational efficiency 
   - [ ] Update GitLab CI (.gitlab-ci.yml) IF needed
 - Notes:
   - Re-ran `./mvnw test` to confirm the scheduled simulator behaviour.
+
+### 2025-10-13-T:14:22:14 - Stabilize demo assignments
+- Summary:
+  - Bound demo interventions to persisted technicians via `getReferenceById`, ensuring the database always stores an actual assignee without touching existing seed accounts.
+  - Forced manual assignment mode for generated rows so the UI consistently exposes the linked technician.
+  - Adjusted simulator tests to mock the repository references and assert deterministic technician binding.
+- Savepoints:
+  - None
+- Required updates:
+  - [ ] Update GitLab CI (.gitlab-ci.yml) IF needed
+- Notes:
+  - `./mvnw test`
