@@ -138,7 +138,7 @@ public class InterventionDemoSimulator {
 
         int desiredInsertions = random.nextInt(3) + 1;
         Instant runTimestamp = Instant.now(clock);
-        LOGGER.info(
+        LOGGER.debug(
                 "Demo simulator run triggered at {} (maxRows={}, batchSize={})",
                 runTimestamp,
                 maxRows,
@@ -159,21 +159,11 @@ public class InterventionDemoSimulator {
             generated.add(buildSyntheticIntervention(runTimestamp, technicianIds));
         }
 
-        LOGGER.info("Demo simulator prepared {} synthetic intervention(s)", generated.size());
-
         List<InterventionEntity> saved = interventionRepository.saveAll(generated);
-        saved.forEach(entity -> LOGGER.info(
-                "Demo simulator stored reference={} status={} plannedAt={} lat={} lon={} technician={}",
-                entity.getReference(),
-                entity.getStatus(),
-                entity.getPlannedAt(),
-                entity.getLatitude(),
-                entity.getLongitude(),
-                entity.getTechnician() != null ? entity.getTechnician().getEmail() : "none"));
 
         long purged = purgeExcessRows();
 
-        LOGGER.info(
+        LOGGER.debug(
                 "Demo simulator inserted {} intervention(s) and purged {} outdated row(s)",
                 saved.size(),
                 purged);
@@ -283,7 +273,7 @@ public class InterventionDemoSimulator {
             int deleted = jdbcTemplate.update(PURGE_STALE_INTERVENTIONS_SQL, maxRows, batchSize);
             totalDeleted += deleted;
             if (deleted > 0) {
-                LOGGER.info("Demo simulator purge pass deleted {} row(s) beyond row cap {}", deleted, maxRows);
+                LOGGER.debug("Demo simulator purge pass deleted {} row(s) beyond row cap {}", deleted, maxRows);
             }
             if (deleted < batchSize) {
                 return totalDeleted;

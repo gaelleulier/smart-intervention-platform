@@ -264,3 +264,13 @@ The goal is to improve responsiveness, traceability, and operational efficiency 
   - [ ] Update GitLab CI (.gitlab-ci.yml) IF needed
 - Notes:
   - Pas de scripts de tests disponibles (`npm run lint` absent).
+
+### 2025-10-13-T:17:00:00 - Réduire les logs du simulateur démo
+- Summary:
+  - Désactivé les traces info du `InterventionDemoSimulator`, en conservant uniquement des logs de debug et l’alerte en cas d’absence de techniciens pour limiter l’exposition d’informations sensibles.
+- Savepoints:
+  - None
+- Required updates:
+  - [ ] Update GitLab CI (.gitlab-ci.yml) IF needed
+- Notes:
+  - Pas de scripts de tests disponibles (`npm run lint` absent).
