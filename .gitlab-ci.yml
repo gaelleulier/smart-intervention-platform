@@ -1,4 +1,4 @@
-stages: [test, build]
+stages: [test, build, deploy]
 
 # =====================
 # Backend — TEST
@@ -127,6 +127,94 @@ frontend:build:
     - exists:
         - frontend/package.json
         - frontend/angular.json
+
+# =====================
+# Docker images — build & push (main only)
+# =====================
+docker:publish:
+  stage: build
+  image: docker:27.3.1
+  services:
+    - name: docker:27.3.1-dind
+      alias: docker
+      command: ["--mtu=1460", "--host=tcp://0.0.0.0:2375", "--tls=false"]
+  variables:
+    DOCKER_DRIVER: overlay2
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+  needs:
+    - backend:build
+    - frontend:build
+  before_script:
+    - docker version
+    - echo "$CI_JOB_TOKEN" | docker login -u gitlab-ci-token --password-stdin "$CI_REGISTRY"
+    - docker buildx create --name ci-builder --driver docker-container --use || docker buildx use ci-builder
+  script:
+    - |
+      docker buildx build \
+        --platform linux/amd64 \
+        --push \
+        -t "$CI_REGISTRY_IMAGE/backend:$CI_COMMIT_SHORT_SHA" \
+        -t "$CI_REGISTRY_IMAGE/backend:main" \
+        -f backend/Dockerfile backend
+    - |
+      docker buildx build \
+        --platform linux/amd64 \
+        --push \
+        -t "$CI_REGISTRY_IMAGE/frontend:$CI_COMMIT_SHORT_SHA" \
+        -t "$CI_REGISTRY_IMAGE/frontend:main" \
+        -f frontend/Dockerfile frontend
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+# =====================
+# Deploy — production (main only)
+# =====================
+deploy:prod:
+  stage: deploy
+  image: alpine:3.20
+  needs:
+    - docker:publish
+  variables:
+    BACKEND_REGISTRY_TAG: "$CI_REGISTRY_IMAGE/backend:main"
+    FRONTEND_REGISTRY_TAG: "$CI_REGISTRY_IMAGE/frontend:main"
+  before_script:
+    - apk add --no-cache openssh-client rsync bash
+    - |
+      if [ -z "$DEPLOY_SSH_PRIVATE_KEY" ] || [ -z "$DEPLOY_HOST" ] || [ -z "$DEPLOY_USER" ] || [ -z "$DEPLOY_PATH" ]; then
+        echo "Missing deployment variables DEPLOY_SSH_PRIVATE_KEY/DEPLOY_HOST/DEPLOY_USER/DEPLOY_PATH" >&2
+        exit 1
+      fi
+    - eval "$(ssh-agent -s)"
+    - echo "$DEPLOY_SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
+    - |
+      if [ -n "$DEPLOY_KNOWN_HOSTS" ]; then
+        printf '%s\n' "$DEPLOY_KNOWN_HOSTS" >> ~/.ssh/known_hosts
+      else
+        ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+      fi
+  script:
+    - DEPLOY_BACKEND_IMAGE=${DEPLOY_BACKEND_IMAGE:-$BACKEND_REGISTRY_TAG}
+    - DEPLOY_FRONTEND_IMAGE=${DEPLOY_FRONTEND_IMAGE:-$FRONTEND_REGISTRY_TAG}
+    - rm -rf deploy_bundle && mkdir -p deploy_bundle
+    - rsync -av --delete --exclude "frontend/node_modules" --exclude "frontend/dist" --exclude "backend/target" backend frontend docker-compose.prod.yml deploy_bundle/
+    - tar -czf deploy_bundle.tar.gz -C deploy_bundle .
+    - rm -rf deploy_bundle
+    - scp deploy_bundle.tar.gz "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/deploy_bundle.tar.gz"
+    - rm deploy_bundle.tar.gz
+    - |
+      if [ -n "$PROD_ENV_FILE" ]; then
+        printf '%s' "$PROD_ENV_FILE" | base64 -d > prod.env
+        scp prod.env "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/.env"
+        rm prod.env
+      fi
+    - ssh "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p $DEPLOY_PATH && cd $DEPLOY_PATH && rm -rf backend frontend docker-compose.prod.yml && tar -xzf deploy_bundle.tar.gz && rm deploy_bundle.tar.gz && docker login $CI_REGISTRY -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD && BACKEND_IMAGE=$DEPLOY_BACKEND_IMAGE FRONTEND_IMAGE=$DEPLOY_FRONTEND_IMAGE docker compose -f docker-compose.prod.yml pull && BACKEND_IMAGE=$DEPLOY_BACKEND_IMAGE FRONTEND_IMAGE=$DEPLOY_FRONTEND_IMAGE docker compose -f docker-compose.prod.yml up -d --remove-orphans"
+  environment:
+    name: production
+    url: $PROD_PUBLIC_URL
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
 
 # =====================
 # Workflow rules

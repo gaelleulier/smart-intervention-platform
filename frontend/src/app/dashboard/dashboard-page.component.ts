@@ -1,4 +1,4 @@
-import { CommonModule, DatePipe, DOCUMENT, isPlatformBrowser } from '@angular/common';
+import { CommonModule, DatePipe, isPlatformBrowser } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -34,6 +34,11 @@ import { Chart, ChartConfiguration, ChartOptions, registerables } from 'chart.js
 import { ShellStateService } from '../layout/shell-state.service';
 import { DashboardService } from './dashboard.service';
 import { AuthService } from '../auth/auth.service';
+import {
+  LEAFLET_MARKER_ICON_RETINA_URL,
+  LEAFLET_MARKER_ICON_URL,
+  LEAFLET_MARKER_SHADOW_URL
+} from '../shared/leaflet-icons';
 
 Chart.register(...registerables);
 
@@ -51,7 +56,6 @@ export class DashboardPageComponent implements OnInit {
   private readonly platformId = inject(PLATFORM_ID);
   private readonly destroyRef = inject(DestroyRef);
   private readonly datePipe = inject(DatePipe);
-  private readonly documentRef = inject(DOCUMENT);
   private readonly fb = inject(FormBuilder);
   private readonly isBrowser = isPlatformBrowser(this.platformId);
   private readonly shellState = inject(ShellStateService);
@@ -754,9 +758,9 @@ export class DashboardPageComponent implements OnInit {
     const L = await this.loadLeaflet();
     if (!this.smartAssignmentMapInstance) {
       if (!this.defaultIcon) {
-        const iconRetinaUrl = this.resolveAssetUrl('assets/leaflet/marker-icon-2x.png');
-        const iconUrl = this.resolveAssetUrl('assets/leaflet/marker-icon.png');
-        const shadowUrl = this.resolveAssetUrl('assets/leaflet/marker-shadow.png');
+        const iconRetinaUrl = LEAFLET_MARKER_ICON_RETINA_URL;
+        const iconUrl = LEAFLET_MARKER_ICON_URL;
+        const shadowUrl = LEAFLET_MARKER_SHADOW_URL;
         this.defaultIcon = L.icon({
           iconRetinaUrl,
           iconUrl,
@@ -835,9 +839,9 @@ export class DashboardPageComponent implements OnInit {
 
     const L = await this.loadLeaflet();
 
-    const iconRetinaUrl = this.resolveAssetUrl('assets/leaflet/marker-icon-2x.png');
-    const iconUrl = this.resolveAssetUrl('assets/leaflet/marker-icon.png');
-    const shadowUrl = this.resolveAssetUrl('assets/leaflet/marker-shadow.png');
+    const iconRetinaUrl = LEAFLET_MARKER_ICON_RETINA_URL;
+    const iconUrl = LEAFLET_MARKER_ICON_URL;
+    const shadowUrl = LEAFLET_MARKER_SHADOW_URL;
 
     this.defaultIcon = L.icon({
       iconRetinaUrl,
@@ -1004,14 +1008,6 @@ export class DashboardPageComponent implements OnInit {
     const plannedAt = marker.plannedAt ? this.datePipe.transform(marker.plannedAt, 'medium') : null;
     const plannedLine = plannedAt ? `<br>Planifiée : ${plannedAt}` : '';
     return `<strong>${marker.status}</strong><br>Dernière mise à jour : ${updatedAt}${plannedLine}`;
-  }
-
-  private resolveAssetUrl(path: string): string {
-    if (!this.isBrowser) {
-      return path;
-    }
-    const baseHref = this.documentRef?.baseURI ?? '/';
-    return new URL(path, baseHref).toString();
   }
 
   private describeError(error: unknown): string {

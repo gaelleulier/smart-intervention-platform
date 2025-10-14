@@ -3,10 +3,10 @@ ENV_FILE ?= .env
 include $(ENV_FILE)
 export $(shell sed 's/=.*//' $(ENV_FILE))
 
-.PHONY: help env-up env-down env-ps backend-run frontend-run db-cli clean cdc-bootstrap
+.PHONY: help env-up env-down env-ps backend-run frontend-run db-cli clean cdc-bootstrap prod-build prod-up prod-down prod-logs prod-ps
 
 help:
-	@echo "Targets: env-up | env-down | env-ps | backend-run | frontend-run | db-cli | clean"
+	@echo "Targets: env-up | env-down | env-ps | backend-run | frontend-run | db-cli | clean | prod-build | prod-up | prod-down | prod-logs | prod-ps"
 
 env-up:
 	docker compose -f docker-compose.dev.yml --env-file $(ENV_FILE) up -d
@@ -28,6 +28,21 @@ db-cli:
 
 clean:
 	rm -rf backend/target frontend/node_modules
+
+prod-build:
+	docker compose -f docker-compose.prod.yml --env-file $(ENV_FILE) build
+
+prod-up: prod-build
+	docker compose -f docker-compose.prod.yml --env-file $(ENV_FILE) up -d
+
+prod-down:
+	docker compose -f docker-compose.prod.yml --env-file $(ENV_FILE) down
+
+prod-logs:
+	docker compose -f docker-compose.prod.yml --env-file $(ENV_FILE) logs -f --tail=200
+
+prod-ps:
+	docker compose -f docker-compose.prod.yml --env-file $(ENV_FILE) ps
 
 cdc-bootstrap: env-up
 	@echo "Waiting for Kafka services to be ready..."

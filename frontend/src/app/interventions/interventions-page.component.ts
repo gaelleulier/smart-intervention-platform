@@ -25,6 +25,11 @@ import {
 } from './intervention.models';
 import { InterventionsService } from './interventions.service';
 import { AuthService } from '../auth/auth.service';
+import {
+  LEAFLET_MARKER_ICON_RETINA_URL,
+  LEAFLET_MARKER_ICON_URL,
+  LEAFLET_MARKER_SHADOW_URL
+} from '../shared/leaflet-icons';
 
 @Component({
   selector: 'app-interventions-page',
@@ -102,6 +107,7 @@ export class InterventionsPageComponent implements OnDestroy {
   private editMap: import('leaflet').Map | null = null;
   private editMarker: import('leaflet').Marker | null = null;
   private readonly defaultCenter: [number, number] = [43.6045, 1.4440];
+  private defaultIcon: import('leaflet').Icon | null = null;
 
   @ViewChild('createMapCanvas') private createMapHost?: ElementRef<HTMLDivElement>;
   @ViewChild('editMapCanvas') private editMapHost?: ElementRef<HTMLDivElement>;
@@ -498,8 +504,29 @@ export class InterventionsPageComponent implements OnDestroy {
       return this.leaflet;
     }
     const module = await import('leaflet');
-    this.leaflet = module.default ?? module;
-    return this.leaflet;
+    const L = module.default ?? module;
+    this.leaflet = L;
+
+    if (!this.defaultIcon) {
+      const iconRetinaUrl = LEAFLET_MARKER_ICON_RETINA_URL;
+      const iconUrl = LEAFLET_MARKER_ICON_URL;
+      const shadowUrl = LEAFLET_MARKER_SHADOW_URL;
+
+      const iconOptions = {
+        iconRetinaUrl,
+        iconUrl,
+        shadowUrl,
+        iconSize: [25, 41] as [number, number],
+        iconAnchor: [12, 41] as [number, number],
+        popupAnchor: [1, -34] as [number, number],
+        shadowSize: [41, 41] as [number, number]
+      };
+
+      this.defaultIcon = L.icon(iconOptions);
+      L.Icon.Default.mergeOptions(iconOptions);
+    }
+
+    return L;
   }
 
   private async initCreateMap(): Promise<void> {
@@ -571,7 +598,7 @@ export class InterventionsPageComponent implements OnDestroy {
     const longitude = lng ?? this.parseCoordinate(formValue.longitude || '');
     if (latitude != null && longitude != null) {
       if (!this.createMarker) {
-        this.createMarker = L.marker([latitude, longitude]).addTo(this.createMap);
+        this.createMarker = L.marker([latitude, longitude], this.defaultIcon ? { icon: this.defaultIcon } : undefined).addTo(this.createMap);
       } else {
         this.createMarker.setLatLng([latitude, longitude]);
       }
@@ -598,7 +625,7 @@ export class InterventionsPageComponent implements OnDestroy {
     const longitude = lng ?? this.parseCoordinate(formValue.longitude || '');
     if (latitude != null && longitude != null) {
       if (!this.editMarker) {
-        this.editMarker = L.marker([latitude, longitude]).addTo(this.editMap);
+        this.editMarker = L.marker([latitude, longitude], this.defaultIcon ? { icon: this.defaultIcon } : undefined).addTo(this.editMap);
       } else {
         this.editMarker.setLatLng([latitude, longitude]);
       }
@@ -624,5 +651,6 @@ export class InterventionsPageComponent implements OnDestroy {
     this.createMarker = null;
     this.editMarker = null;
     this.leaflet = null;
+    this.defaultIcon = null;
   }
 }
