@@ -274,3 +274,28 @@ The goal is to improve responsiveness, traceability, and operational efficiency 
   - [ ] Update GitLab CI (.gitlab-ci.yml) IF needed
 - Notes:
   - Pas de scripts de tests disponibles (`npm run lint` absent).
+
+### 2025-10-14-T:09:28:08 - Production dockerization & gated deploy pipeline
+- Summary:
+  - Added Dockerfiles and nginx proxy config so backend (Spring Boot) and frontend (Angular SSR bundle) build as standalone production images consumed by `docker-compose.prod.yml`.
+  - Introduced `prod-*` Make targets plus README guidance to rehearse the production stack locally (build, up/down, logs) on top of the new images and healthchecks.
+  - Created `application-prod.yml` enabling analytics refresh/scheduling defaults and forward-header support when running behind the nginx reverse proxy.
+  - Extended GitLab CI with Buildx image publishing and an SSH-based deployment stage triggered only on `main`, capable of syncing the compose bundle and rolling the stack with registry images.
+- Savepoints:
+  - None
+- Required updates:
+  - [x] Update GitLab CI (.gitlab-ci.yml)
+  - [ ] Ensure remote production host has docker login rights and `.env` secrets managed via CI variable `PROD_ENV_FILE`
+- Notes:
+  - Pipeline expects environment variables (`DEPLOY_*`, `PROD_ENV_FILE`, optional `DEPLOY_KNOWN_HOSTS`) configured in GitLab to authenticate and target the production server.
+
+### 2025-10-14-T:13:33:57 - Stabilize Leaflet markers in intervention forms
+- Summary:
+  - Embedded the default Leaflet marker/shadow assets as data URIs (`shared/leaflet-icons.ts`) and reused them across dashboard and intervention maps to avoid path resolution issues.
+  - Ensured intervention create/edit maps reuse the shared icon instance so click selections render the expected blue pin.
+- Savepoints:
+  - None
+- Required updates:
+  - [ ] Update GitLab CI (.gitlab-ci.yml) IF needed
+- Notes:
+  - `npm run build -- --configuration=development`

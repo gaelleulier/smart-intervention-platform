@@ -186,6 +186,47 @@ make env-down
 
 ---
 
+## Run – Production (Docker Compose)
+
+> This mode builds production images (Spring Boot JAR + Angular static bundle) and serves everything through Docker. Use it to rehearse deployments locally.
+
+1. **Prepare environment variables**
+   ```bash
+   cp .env.example .env # if you have not done so
+   # Optional: adjust exposed ports for production rehearsal
+   # BACKEND_PORT=8080
+   # FRONTEND_PORT=8081
+   ```
+   Ensure `JWT_SECRET` is set to a strong value; the example is only for local usage.
+
+2. **Build and start the stack**
+   ```bash
+   make prod-up
+   ```
+   This runs `docker compose -f docker-compose.prod.yml --env-file .env up -d` and builds both images.
+
+3. **Smoke-test**
+   ```bash
+   curl -s http://localhost:${BACKEND_PORT:-8080}/api/health | jq
+   # Open http://localhost:${FRONTEND_PORT:-8081} in your browser
+   ```
+
+4. **Inspect logs / status**
+   ```bash
+   make prod-logs   # Follows all service logs (Ctrl+C to exit)
+   make prod-ps     # Displays container status
+   ```
+
+5. **Stop the production stack**
+   ```bash
+   make prod-down
+   ```
+   This keeps database volumes intact; append `-v` manually if you want a clean slate.
+
+> Tip: The frontend container proxies `/api` requests to the backend container, so cookies and CORS match the production behaviour.
+
+---
+
 ## Make Targets
 
 ```makefile
