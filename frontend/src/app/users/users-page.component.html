@@ -1,33 +1,33 @@
 <section class="users">
   <header class="users__header">
     <div>
-      <h2>Users</h2>
-      <p>Manage user accounts for the intervention platform.</p>
+      <h2>Utilisateurs</h2>
+      <p>Gérez les comptes de la plateforme d’interventions.</p>
     </div>
     <div class="header__actions">
       <span class="badge" *ngIf="activeRole() as role">{{ role }}</span>
       <button type="button" class="button button--ghost" (click)="onRefresh()" [disabled]="loading()">
-        Refresh
+        Actualiser
       </button>
-      <button type="button" class="button button--ghost" (click)="logout()">Logout</button>
+      <button type="button" class="button button--ghost" (click)="logout()">Se déconnecter</button>
     </div>
   </header>
 
   <section class="card filters">
     <form class="filters__form" [formGroup]="filtersForm" (ngSubmit)="onFilterSubmit()">
       <label class="field">
-        <span>Search</span>
-        <input type="search" formControlName="query" placeholder="Email or full name" />
+        <span>Recherche</span>
+        <input type="search" formControlName="query" placeholder="Email ou nom complet" />
       </label>
       <label class="field">
-        <span>Role</span>
+        <span>Rôle</span>
         <select formControlName="role">
-          <option [ngValue]="''">All</option>
+          <option [ngValue]="''">Tous</option>
           <option *ngFor="let role of roles" [ngValue]="role">{{ role }}</option>
         </select>
       </label>
       <label class="field">
-        <span>Page size</span>
+        <span>Taille de page</span>
         <select formControlName="size">
           <option [ngValue]="10">10</option>
           <option [ngValue]="20">20</option>
@@ -35,9 +35,9 @@
         </select>
       </label>
       <div class="filters__actions">
-        <button type="submit" class="button" [disabled]="loading()">Apply</button>
+        <button type="submit" class="button" [disabled]="loading()">Appliquer</button>
         <button type="button" class="button button--ghost" (click)="onResetFilters()" [disabled]="loading()">
-          Reset
+          Réinitialiser
         </button>
       </div>
     </form>
@@ -45,171 +45,204 @@
 
   <section class="card edit" *ngIf="editingUser() as user">
     <div class="edit__header">
-      <h3>Edit user</h3>
+      <h3>Modifier l’utilisateur</h3>
       <button type="button" class="button button--ghost" (click)="cancelEdit()" [disabled]="updating()">
-        Cancel
+        Annuler
       </button>
     </div>
-    <ng-container *ngIf="canEditUser(user)">
+    <ng-container *ngIf="isAdmin(); else editReadOnly">
       <form class="edit__form" [formGroup]="editForm" (ngSubmit)="onUpdateUser()">
         <label class="field">
           <span>Email</span>
           <input type="email" formControlName="email" />
         </label>
         <label class="field">
-          <span>Full name</span>
+          <span>Nom complet</span>
           <input type="text" formControlName="fullName" />
         </label>
         <label class="field">
-          <span>New password (optional)</span>
+          <span>Nouveau mot de passe (optionnel)</span>
           <input type="password" formControlName="password" autocomplete="new-password" />
         </label>
         <label class="field">
-          <span>Role</span>
+          <span>Rôle</span>
           <select formControlName="role">
             <option *ngFor="let role of roles" [ngValue]="role">{{ role }}</option>
           </select>
         </label>
         <div class="edit__meta">
-          <span>Created {{ user.createdAt | date: 'medium' }}</span>
+          <span>Créé le {{ user.createdAt | date: 'medium' }}</span>
         </div>
         <div class="edit__actions" *ngIf="isAdmin()">
-          <button type="submit" class="button" [disabled]="updating()">Save changes</button>
+          <button type="submit" class="button" [disabled]="updating()">Enregistrer</button>
         </div>
       </form>
-
-      <section class="password" *ngIf="isSelf(user)">
-        <h4>Change your password</h4>
-        <p class="password__hint">
-          Update your credentials. You will be redirected to the login screen afterwards.
-        </p>
-        <form class="password__form" [formGroup]="changePasswordForm" (ngSubmit)="onChangePassword()">
-          <label class="field">
-            <span>Current password</span>
-            <input type="password" formControlName="currentPassword" autocomplete="current-password" />
-          </label>
-          <label class="field">
-            <span>New password</span>
-            <input type="password" formControlName="newPassword" autocomplete="new-password" />
-          </label>
-          <label class="field">
-            <span>Confirm password</span>
-            <input type="password" formControlName="confirmPassword" autocomplete="new-password" />
-          </label>
-          <div *ngIf="changePasswordError() as err" class="alert alert--error">{{ err }}</div>
-          <div *ngIf="changePasswordSuccess()" class="alert alert--success">
-            Password updated. Please log in again.
-          </div>
-          <div class="password__actions">
-            <button type="submit" class="button" [disabled]="changingPassword()">Update password</button>
-          </div>
-        </form>
-      </section>
     </ng-container>
+    <ng-template #editReadOnly>
+      <p class="edit__readonly">
+        Les informations utilisateurs ne peuvent être modifiées que par un administrateur.
+      </p>
+    </ng-template>
+
+    <section class="password" *ngIf="isSelf(user)">
+      <h4>Modifier votre mot de passe</h4>
+      <p class="password__hint">
+        Mettez à jour vos identifiants. Vous serez ensuite redirigé vers l’écran de connexion.
+      </p>
+      <form class="password__form" [formGroup]="changePasswordForm" (ngSubmit)="onChangePassword()">
+        <label class="field">
+          <span>Mot de passe actuel</span>
+          <input type="password" formControlName="currentPassword" autocomplete="current-password" />
+        </label>
+        <label class="field">
+          <span>Nouveau mot de passe</span>
+          <input type="password" formControlName="newPassword" autocomplete="new-password" />
+        </label>
+        <label class="field">
+          <span>Confirmez le mot de passe</span>
+          <input type="password" formControlName="confirmPassword" autocomplete="new-password" />
+        </label>
+        <div *ngIf="changePasswordError() as err" class="alert alert--error">{{ err }}</div>
+        <div *ngIf="changePasswordSuccess()" class="alert alert--success">
+          Mot de passe mis à jour. Merci de vous reconnecter.
+        </div>
+        <div class="password__actions">
+          <button type="submit" class="button" [disabled]="changingPassword()">Mettre à jour</button>
+        </div>
+      </form>
+    </section>
   </section>
 
-  <section class="card list">
+  <section class="card list" [attr.aria-busy]="loading()">
     <div *ngIf="error() as err" class="alert alert--error">{{ err }}</div>
-    <div *ngIf="loading()" class="loader">Loading users…</div>
 
-    <table *ngIf="!loading() && page() as pageData; else emptyState">
-      <thead>
-        <tr>
-          <th scope="col">Email</th>
-          <th scope="col">Full name</th>
-          <th scope="col">Role</th>
-          <th scope="col">Created</th>
-          <th scope="col" class="col-actions">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let user of pageData.content">
-          <td>{{ user.email }}</td>
-          <td>{{ user.fullName }}</td>
-          <td><span class="pill" [attr.data-role]="user.role">{{ user.role }}</span></td>
-          <td>{{ user.createdAt | date: 'medium' }}</td>
-          <td class="col-actions">
+    <ng-container *ngIf="page() as pageData; else loadingOrEmpty">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Email</th>
+            <th scope="col">Nom complet</th>
+            <th scope="col">Rôle</th>
+            <th scope="col">Créé le</th>
+            <th scope="col" class="col-actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngIf="!pageData.content.length">
+            <td colspan="5" class="empty empty--inline">Aucun utilisateur ne correspond à vos filtres.</td>
+          </tr>
+          <tr *ngFor="let user of pageData.content; trackBy: trackByUserId">
+            <td>{{ user.email }}</td>
+            <td>{{ user.fullName }}</td>
+            <td><span class="pill" [attr.data-role]="user.role">{{ user.role }}</span></td>
+            <td>{{ user.createdAt | date: 'medium' }}</td>
+            <td class="col-actions">
             <button
               type="button"
               class="button button--ghost"
               (click)="startEdit(user)"
-              *ngIf="canEditUser(user)"
-              [disabled]="updating()"
+              [disabled]="!isAdmin() || updating()"
             >
-              Edit
+              Modifier
             </button>
-            <button
-              type="button"
-              class="button button--danger"
-              (click)="onDeleteUser(user)"
-              *ngIf="canDeleteUser(user)"
-              [disabled]="deletingId() === user.id"
-            >
-              Delete
-            </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+              <button
+                type="button"
+                class="button button--danger"
+                (click)="onDeleteUser(user)"
+                *ngIf="canDeleteUser(user)"
+                [disabled]="deletingId() === user.id"
+              >
+                Supprimer
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
 
-    <ng-template #emptyState>
-      <div class="empty" *ngIf="page()?.totalElements === 0 && !loading()">No users match your filters.</div>
-    </ng-template>
+      <div class="list__create" *ngIf="isAdmin()">
+        <button
+          type="button"
+          class="button button--circle"
+          (click)="showingCreate() ? cancelCreate() : startCreate()"
+          [attr.aria-label]="showingCreate() ? 'Annuler la création d’un utilisateur' : 'Créer un utilisateur'"
+          [disabled]="saving()"
+        >
+          {{ showingCreate() ? '×' : '+' }}
+        </button>
+        <span *ngIf="showingCreate()">Création d’un nouvel utilisateur…</span>
+      </div>
 
-    <div class="list__create" *ngIf="isAdmin()">
-      <button
-        type="button"
-        class="button button--circle"
-        (click)="showingCreate() ? cancelCreate() : startCreate()"
-        [attr.aria-label]="showingCreate() ? 'Cancel user creation' : 'Create user'"
-        [disabled]="saving()"
-      >
-        {{ showingCreate() ? '×' : '+' }}
-      </button>
-      <span *ngIf="showingCreate()">Creating a new user...</span>
-    </div>
-
-    <footer class="pagination" *ngIf="page() as pageData">
-      <button type="button" class="button button--ghost" (click)="changePage(-1)" [disabled]="pageData.page === 0 || loading()">
-        Previous
-      </button>
-      <span>Page {{ pageData.page + 1 }} / {{ pageData.totalPages || 1 }} • {{ pageData.totalElements }} users</span>
-      <button
-        type="button"
-        class="button button--ghost"
-        (click)="changePage(1)"
-        [disabled]="pageData.page >= pageData.totalPages - 1 || loading()"
-      >
-        Next
-      </button>
-    </footer>
+      <footer class="pagination">
+        <button
+          type="button"
+          class="button button--ghost"
+          (click)="changePage(-1)"
+          [disabled]="pageData.page === 0 || loading()"
+        >
+          Précédent
+        </button>
+        <span>Page {{ pageData.page + 1 }} / {{ pageData.totalPages || 1 }} • {{ pageData.totalElements }} utilisateurs</span>
+        <button
+          type="button"
+          class="button button--ghost"
+          (click)="changePage(1)"
+          [disabled]="pageData.page >= pageData.totalPages - 1 || loading()"
+        >
+          Suivant
+        </button>
+      </footer>
+    </ng-container>
 
   </section>
 
+  <ng-template #loadingOrEmpty>
+    <ng-container *ngIf="loading(); else emptyState">
+      <table class="table--skeleton" aria-hidden="true">
+        <thead>
+          <tr>
+            <th *ngFor="let _ of skeletonColumns; let isLast = last" [class.col-actions]="isLast"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let _ of skeletonRows">
+            <td *ngFor="let __ of skeletonColumns; let isLast = last" [class.col-actions]="isLast">
+              <span class="skeleton-bar"></span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <span class="sr-only" aria-live="polite">Chargement des utilisateurs…</span>
+    </ng-container>
+  </ng-template>
+
+  <ng-template #emptyState>
+    <div class="empty">Aucun utilisateur ne correspond à vos filtres.</div>
+  </ng-template>
+
   <section class="card create" *ngIf="isAdmin() && showingCreate()">
-    <h3>Create user</h3>
+    <h3>Créer un utilisateur</h3>
     <form class="create__form" [formGroup]="createForm" (ngSubmit)="onCreateUser()">
       <label class="field">
         <span>Email</span>
-        <input type="email" formControlName="email" placeholder="user@example.com" />
+        <input type="email" formControlName="email" placeholder="utilisateur@example.com" />
       </label>
       <label class="field">
-        <span>Full name</span>
-        <input type="text" formControlName="fullName" placeholder="First Last" />
+        <span>Nom complet</span>
+        <input type="text" formControlName="fullName" placeholder="Prénom Nom" />
       </label>
       <label class="field">
-        <span>Password</span>
-        <input type="password" formControlName="password" placeholder="Strong password" autocomplete="new-password" />
+        <span>Mot de passe</span>
+        <input type="password" formControlName="password" placeholder="Mot de passe robuste" autocomplete="new-password" />
       </label>
       <label class="field">
-        <span>Role</span>
+        <span>Rôle</span>
         <select formControlName="role">
           <option *ngFor="let role of roles" [ngValue]="role">{{ role }}</option>
         </select>
       </label>
       <div class="create__actions">
-        <button type="button" class="button button--ghost" (click)="cancelCreate()" [disabled]="saving()">Cancel</button>
-        <button type="submit" class="button" [disabled]="saving()">Create</button>
+        <button type="button" class="button button--ghost" (click)="cancelCreate()" [disabled]="saving()">Annuler</button>
+        <button type="submit" class="button" [disabled]="saving()">Créer</button>
       </div>
     </form>
   </section>

@@ -1,18 +1,40 @@
 <section class="login">
-  <h1>Sign in</h1>
-  <p class="login__subtitle">Authenticate to manage users.</p>
+  <h1>Connexion</h1>
+  <p class="login__subtitle">Identifiez-vous pour administrer la plateforme.</p>
   <form class="login__form" [formGroup]="loginForm" (ngSubmit)="onSubmit()">
     <label class="field">
       <span>Email</span>
       <input type="email" formControlName="email" placeholder="admin@sip.local" autocomplete="username" />
     </label>
     <label class="field">
-      <span>Password</span>
-      <input type="password" formControlName="password" placeholder="Password" autocomplete="current-password" />
+      <span>Mot de passe</span>
+      <input type="password" formControlName="password" placeholder="Mot de passe" autocomplete="current-password" />
     </label>
     <div *ngIf="error() as err" class="alert alert--error">{{ err }}</div>
+    <section class="login__demo" aria-labelledby="demo-login-heading">
+      <h2 id="demo-login-heading">Comptes de démonstration</h2>
+      <p class="login__demo-subtitle">Connectez-vous instantanément avec un rôle préconfiguré.</p>
+      <div class="login__demo-buttons">
+        <button
+          type="button"
+          class="button button--primary"
+          (click)="loginAsDemo('dispatcher')"
+          [disabled]="loading()"
+          aria-label="Se connecter avec un compte démonstrateur dispatch">
+          Essayer en tant que dispatch
+        </button>
+        <button
+          type="button"
+          class="button button--ghost"
+          (click)="loginAsDemo('technician')"
+          [disabled]="loading()"
+          aria-label="Se connecter avec un compte démonstrateur technicien">
+          Essayer en tant que technicien
+        </button>
+      </div>
+    </section>
     <div class="login__actions">
-      <button type="submit" class="button" [disabled]="loading()">Log in</button>
+      <button type="submit" class="button button--primary" [disabled]="loading()">Se connecter</button>
     </div>
   </form>
 </section>

@@ -19,10 +19,10 @@ describe('App', () => {
     expect(app).toBeTruthy();
   });
 
-  it('should render title', () => {
+  it('should render a router outlet', () => {
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.brand__title')?.textContent).toContain('Smart Intervention Platform');
+    expect(compiled.querySelector('router-outlet')).not.toBeNull();
   });
 });

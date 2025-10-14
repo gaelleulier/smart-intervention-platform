@@ -1,0 +1,253 @@
+.interventions {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.interventions__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.interventions__header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.interventions__header p {
+  margin: 0.25rem 0 0;
+  color: #6b7280;
+}
+
+.card {
+  background: #fff;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  border: 1px solid rgba(15, 23, 42, 0.05);
+}
+
+.filters__form,
+.create__form,
+.edit__form {
+  display: grid;
+  gap: 1rem;
+}
+
+.filters__form {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  align-items: end;
+}
+
+.filters__actions,
+.create__actions,
+.edit__actions,
+.header__actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.header__actions {
+  align-items: center;
+}
+
+.create__header,
+.edit__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.edit__meta {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+}
+
+.field span {
+  color: #4b5563;
+  font-weight: 500;
+}
+
+.field input,
+.field select,
+.field textarea {
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(55, 65, 81, 0.2);
+  background: #f9fafb;
+  transition: border-color 0.2s ease, background 0.2s ease;
+  font: inherit;
+}
+
+.field textarea {
+  resize: vertical;
+}
+
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: #2563eb;
+  background: #fff;
+}
+
+.field-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: #2563eb;
+  color: #fff;
+  transition: background 0.2s ease, opacity 0.2s ease;
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.button--ghost {
+  background: rgba(37, 99, 235, 0.1);
+  color: #1f2937;
+}
+
+.button--ghost:hover:not(:disabled) {
+  background: rgba(37, 99, 235, 0.18);
+}
+
+.button--danger {
+  background: rgba(220, 38, 38, 0.95);
+}
+
+.button--danger:hover:not(:disabled) {
+  background: rgba(185, 28, 28, 0.95);
+}
+
+.list table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.list th,
+.list td {
+  padding: 0.75rem 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.list thead th {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #475569;
+}
+
+.col-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.map-picker {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.map-picker__canvas {
+  width: 100%;
+  height: 220px;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.15);
+}
+
+.map-picker__hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.alert {
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.alert--error {
+  background: rgba(239, 68, 68, 0.12);
+  color: #b91c1c;
+}
+
+.loader {
+  font-style: italic;
+  color: #6b7280;
+}
+
+.empty {
+  text-align: center;
+  color: #6b7280;
+  padding: 1rem 0;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8;
+}
+
+.pill[data-status='IN_PROGRESS'] {
+  background: rgba(251, 191, 36, 0.15);
+  color: #b45309;
+}
+
+.pill[data-status='COMPLETED'] {
+  background: rgba(34, 197, 94, 0.15);
+  color: #047857;
+}
+
+.pill[data-status='VALIDATED'] {
+  background: rgba(124, 58, 237, 0.15);
+  color: #6d28d9;
+}
+
+.pagination {
+  margin-top: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.9rem;
+}

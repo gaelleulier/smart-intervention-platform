@@ -28,11 +28,17 @@
               {
                 "glob": "**/*",
                 "input": "public"
+              },
+              {
+                "glob": "**/*",
+                "input": "node_modules/leaflet/dist/images",
+                "output": "assets/leaflet"
               }
             ],
             "styles": [
               "src/styles.scss"
             ],
+            "allowedCommonJsDependencies": ["leaflet"],
             "server": "src/main.server.ts",
             "outputMode": "server",
             "ssr": {
@@ -49,8 +55,8 @@
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "4kB",
-                  "maximumError": "8kB"
+                  "maximumWarning": "15kB",
+                  "maximumError": "20kB"
                 }
               ],
               "outputHashing": "all"

@@ -1,5 +1,7 @@
 package io.smartip.users;
 
+import io.smartip.domain.InterventionEntity;
+import io.smartip.domain.InterventionRepository;
 import io.smartip.domain.UserEntity;
 import io.smartip.domain.UserRepository;
 import io.smartip.domain.UserRole;
@@ -17,10 +19,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final InterventionRepository interventionRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public UserService(UserRepository userRepository, InterventionRepository interventionRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
+        this.interventionRepository = interventionRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -83,6 +87,13 @@ public class UserService {
     @Transactional
     public void deleteUser(Long id) {
         UserEntity entity = userRepository.findById(id).orElseThrow(() -> new UserNotFoundException(id));
+        if (UserRole.ADMIN.equals(entity.getRole()) && userRepository.countByRole(UserRole.ADMIN) <= 1) {
+            throw new UserDeletionNotAllowedException("Cannot delete the last administrator");
+        }
+        for (InterventionEntity intervention : interventionRepository.findAllByTechnician_Id(entity.getId())) {
+            intervention.setTechnician(null);
+            interventionRepository.save(intervention);
+        }
         userRepository.delete(entity);
     }
 

@@ -11,6 +11,9 @@ This document defines the architectural guardrails for the Smart Intervention Pl
 
 ## 2. Domain & Modules
 - MVP scope focuses on **Users Management** (authentication, authorization, CRUD).
+- **Intervention Management** module manages creation, scheduling, and lifecycle of field operations with
+  automatic/manual technician assignment and state transitions (`SCHEDULED → IN_PROGRESS → COMPLETED → VALIDATED`).
+- **Dashboard & Reporting** module aggregates operational KPIs, exposes map visualizations, and consumes analytics pipelines fed from intervention events.
 - Future modules must be scoped as dedicated bounded contexts, following clear API versioning when contracts change.
 
 ## 3. Backend Guidelines
@@ -19,6 +22,7 @@ This document defines the architectural guardrails for the Smart Intervention Pl
   - RESTful endpoints, JSON bodies, RFC 7807 problem details for errors.
   - Enforce validation using Jakarta Validation (`@Valid`) and custom constraint annotations when required.
   - Pagination uses Spring Data conventions (`page`, `size`, `sort`).
+  - Interventions API published under `/api/interventions` with filters (`query`, `status`, `assignmentMode`, `technicianId`, `plannedFrom`, `plannedTo`). Only admins/dispatchers can create or edit; technicians may progress the status of their own assignments.
 - **Persistence**:
   - JPA entities mapped via Hibernate; prefer explicit column definitions for clarity.
   - Use repositories for data access and services for business logic. Keep controllers thin.
@@ -43,6 +47,7 @@ This document defines the architectural guardrails for the Smart Intervention Pl
 - Never modify an applied migration; create a follow-up migration to adjust data or schema.
 - Required extensions: `uuid-ossp` (UUID generation) and `pgcrypto` (cryptographic helpers).
 - Seed data for local development must be clearly segregated and idempotent.
+- Interventions persist optional geolocation metadata (`latitude`, `longitude`) captured from the UI and replicated into analytics views.
 
 ## 6. Testing Strategy
 - **Backend**: JUnit 5 for unit/integration tests, leveraging Spring Boot Test slices when possible. Security-sensitive endpoints require dedicated tests.
@@ -66,3 +71,61 @@ This document defines the architectural guardrails for the Smart Intervention Pl
 - Define production containerization strategy (Dockerfiles, orchestration).
 - Introduce comprehensive CI pipeline stages (lint, test, build, publish).
 - Finalize logging/monitoring stack for production (e.g., ELK, OpenTelemetry).
+
+## 11. Dashboard & Reporting Module
+- **Objectives**:
+  - Provide real-time-ish operational KPIs (daily intervention volume, status distribution, technician workload, SLA adherence).
+  - Offer geo-visualization of interventions (planned vs. active) on an interactive map.
+  - Serve analytics-ready aggregates produced by the intervention pipeline (stream/batch) without impacting OLTP workloads.
+
+- **Backend Architecture**:
+  - Package namespace: `io.smartip.dashboard`.
+  - REST controller under `/api/dashboard` exposing:
+    - `GET /summary`: totals for current day/week, average completion time, validation ratio.
+    - `GET /status-trends`: time-series grouped per day/week with status buckets.
+    - `GET /technician-load`: open vs. completed counts per technician, ordered by load.
+    - `GET /map`: geo-referenced interventions with status and assignment metadata.
+  - DTOs returned in lightweight numeric formats (no entities). Use records under `io.smartip.dashboard.dto`.
+  - Service layer consumes pre-aggregated tables or materialized views; fallback to dynamic aggregation only when data volume < 10k rows.
+  - Repository layer targets analytics schema: use dedicated Spring Data projections (`@Query(nativeQuery = true)` or `JdbcTemplate`) to avoid JPA entity inflation.
+  - Responses cached via Spring Cache (`@Cacheable`) with configurable TTL (default 60 seconds) to cap load when dashboards auto-refresh.
+  - Security: endpoints restricted to `ADMIN` and `DISPATCHER`; technicians receive read-only `GET /technician-load` filtered on their assignments. Apply method-level guards (`@PreAuthorize`).
+
+- **Frontend Architecture**:
+  - New feature folder `src/app/dashboard` with routes `/dashboard` (default redirect from `/` once module GA).
+  - Components:
+    - `DashboardPageComponent`: orchestrates data fetch, error handling, refresh cadence.
+    - `KpiCardsComponent`, `StatusTrendChartComponent`, `TechnicianLoadComponent`, `InterventionMapComponent`.
+  - State handled via RxJS signals or component store; keep HTTP services in `dashboard.service.ts`.
+  - Visualization libraries:
+    - Charts: leverage Angular + `ngx-charts` (or D3 wrapper) for bar/line charts.
+    - Map: default to Leaflet via `@asymmetrik/ngx-leaflet`; Google Maps optional behind feature flag if customers require satellite view. Leaflet tiles use OpenStreetMap with configurable tile URL and API key support.
+  - Responsive layout (desktop: multi-column grid; mobile: stacked cards). Ensure high-contrast color palette for statuses.
+
+- **Analytics Pipeline**:
+  - Change Data Capture from `interventions` table via Debezium connector (Postgres slot) -> Kafka topic `sip.interventions` with payload flattened through `ExtractNewRecordState`.
+  - Local developer stack ships Zookeeper, Kafka, Debezium Connect, Flink (job/task manager) and Kafka UI (`docker-compose.dev.yml`). Kafka Connect configs live under `infra/cdc/connectors` and are registered via `scripts/register-connectors.sh`.
+  - Stream processing is handled by a Flink SQL job template (`infra/cdc/flink/analytics_job.sql`) submitted via `scripts/submit-flink-job.sh`. The job performs upserts into PostgreSQL analytics tables (`analytics.intervention_daily_metrics`, `analytics.intervention_technician_load`, `analytics.intervention_geo_view`).
+  - Nightly batch (optional) replays aggregates to correct drift; orchestrated via Airflow using the same processing DAG. Spring fallback `/api/dashboard/refresh` delegates to `AnalyticsAggregationService` (disabled by default) for manual recompaction.
+  - Schema:
+    - `analytics.intervention_daily_metrics`: columns (`date`, `status`, `count`, `avg_completion_seconds`, `validation_ratio`).
+    - `analytics.intervention_technician_load`: (`technician_id`, `open_count`, `completed_today`, `avg_completion_seconds`).
+    - `analytics.intervention_geo_view`: (`intervention_id`, `latitude`, `longitude`, `status`, `technician_id`, `planned_at`, `updated_at`).
+  - Materialized views refreshed continuously by the Flink job; expose topic/table mapping in `infra/cdc/README.md` for ops visibility.
+  - `AnalyticsAggregationService` (Spring) remains as an on-demand fallback (`dashboard.analytics.refresh-enabled=false` by default) and powers the `/api/dashboard/refresh` endpoint.
+
+- **Data Quality & Governance**:
+  - Enforce presence of geolocation metadata when scheduling interventions (validation on backend & Flyway NOT NULL columns once adoption validated).
+  - Add anomaly detection job (e.g., threshold alerts when validation ratio drops below 80%) publishing to monitoring stack (future work).
+  - Document lineage in TECH_SPECS.md and maintain data contracts between OLTP events and analytics schema.
+
+- **Testing & Performance**:
+  - Backend: contract tests for `/api/dashboard` ensuring cached responses and role guards; integration tests hitting analytics schema fixtures.
+  - Frontend: component/unit tests for chart formatting, map markers, and data refresh logic.
+  - Pipeline: include replayable integration tests (Docker Compose profile) validating CDC -> stream aggregator -> analytics tables.
+  - SLAs: Summary endpoint p95 < 200 ms (served from cached view); map payload limited to 500 markers per request (paginate beyond).
+
+- **Security & Compliance**:
+  - Data served from analytics schema must avoid PII beyond technician full name; anonymize customer data before ingestion.
+  - Ensure map endpoints omit precise coordinates for sensitive interventions unless user has `ADMIN` role; allow rounding to 2 decimal places for dispatchers via query parameter.
+  - Audit logging for dashboard access to support compliance (store role, timestamp, filters applied).

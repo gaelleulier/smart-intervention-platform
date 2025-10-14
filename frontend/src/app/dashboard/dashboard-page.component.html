@@ -1,0 +1,418 @@
+<section class="dashboard" [class.dashboard--loading]="loading()">
+  <header class="dashboard__header">
+    <div>
+      <h2>Plateforme Smart Intervention</h2>
+      <p>Suivez en temps réel les opérations, les indicateurs clés et la géolocalisation des interventions.</p>
+    </div>
+    <button
+      type="button"
+      class="dashboard__action"
+      (click)="refresh()"
+      [disabled]="busy()"
+      data-testid="refresh-data">
+      <span class="dashboard__action-spinner" *ngIf="busy()"></span>
+      Actualiser les données
+    </button>
+  </header>
+
+  <div *ngIf="error() as err" class="dashboard__alert">{{ err }}</div>
+
+  <div *ngIf="loading()" class="dashboard__loader">Chargement du tableau de bord…</div>
+
+  <section class="dashboard__metrics" *ngIf="summary() as data">
+    <article class="metric-card">
+      <header>
+        <h3>Interventions totales</h3>
+        <span class="metric-card__caption">
+          Mise à jour {{ data.lastRefreshedAt ? (data.lastRefreshedAt | date: 'medium') : 'N/D' }}
+        </span>
+      </header>
+      <p class="metric-card__value">{{ data.totalInterventions }}</p>
+    </article>
+    <article class="metric-card" *ngFor="let card of statusKpis">
+      <header>
+        <h3>{{ card.label }}</h3>
+      </header>
+      <p class="metric-card__value">{{ summaryValue(data, card.key) }}</p>
+      <span class="metric-card__caption">Statut en temps réel</span>
+    </article>
+    <article class="metric-card">
+      <header>
+        <h3>Durée moyenne</h3>
+      </header>
+      <p class="metric-card__value">
+        {{ data.averageCompletionSeconds ? (data.averageCompletionSeconds / 60 | number: '1.0-0') + ' min' : 'N/D' }}
+      </p>
+      <span class="metric-card__caption">Entre début et validation</span>
+    </article>
+    <article class="metric-card">
+      <header>
+        <h3>Taux de validation</h3>
+      </header>
+      <p class="metric-card__value">
+        {{ data.validationRatio ? (data.validationRatio | number: '1.0-1') + ' %' : 'N/D' }}
+      </p>
+      <span class="metric-card__caption">Rapport validées / terminées</span>
+    </article>
+  </section>
+
+  <section class="dashboard__ai">
+    <header class="ai-section__header">
+      <span class="ai-section__icon" aria-hidden="true">✨</span>
+      <h3>Fonctionnalités IA</h3>
+    </header>
+    <div class="ai-grid">
+      <article class="card ai-card ai-card--insights ai-fade" [class.card--error]="aiInsightsError()">
+        <header>
+          <div class="ai-card__title">
+            <span class="ai-card__icon" aria-hidden="true">✨</span>
+            <h3>Analyses automatiques</h3>
+          </div>
+          <span class="ai-badge">Généré par l’IA</span>
+        </header>
+        <p class="ai-card__intro">Résumé heuristique des tendances quotidiennes.</p>
+        <ng-container *ngIf="aiInsights() as insight; else aiFallback">
+          <div class="ai-card__highlight" [ngClass]="trendClass(insight.trendDirection)">
+            <span class="ai-card__trend-icon">{{ trendIcon(insight.trendDirection) }}</span>
+            <div>
+              <strong>{{ insight.headline }}</strong>
+              <small>{{ trendLabel(insight.trendDirection) }} ({{ insight.trendPercentage | number: '1.0-1' }} %)</small>
+            </div>
+          </div>
+          <ul class="ai-card__list">
+            <li *ngIf="primaryInsightHighlight() as primary">{{ primary }}</li>
+            <li *ngFor="let highlight of secondaryInsightHighlights()">{{ highlight }}</li>
+          </ul>
+          <footer class="ai-card__footer">
+            <span>{{ insight.validationAssessment }}</span>
+            <span>•</span>
+            <span>{{ insight.slaAssessment }}</span>
+          </footer>
+        </ng-container>
+        <ng-template #aiFallback>
+          <p class="ai-card__empty" *ngIf="aiInsightsError() as insightErr">{{ insightErr }}</p>
+          <p class="ai-card__empty" *ngIf="!aiInsightsError()">En attente de données pour la journée.</p>
+        </ng-template>
+      </article>
+
+      <article class="card ai-card ai-card--forecast ai-fade" [class.card--loading]="busy()">
+        <header>
+          <div class="ai-card__title">
+            <span class="ai-card__icon" aria-hidden="true">📈</span>
+            <h3>Prévision 7 jours</h3>
+          </div>
+          <span class="ai-badge ai-badge--accent">SES</span>
+        </header>
+        <p class="ai-card__intro">Lissage exponentiel simple basé sur l’historique récent.</p>
+        <ng-container *ngIf="forecastChartData() as forecastChart">
+          <div class="chart__canvas" *ngIf="forecastChart.datasets.length; else forecastEmpty">
+            <canvas baseChart [data]="forecastChart" [options]="forecastChartOptions" type="line"></canvas>
+          </div>
+        </ng-container>
+        <ng-template #forecastEmpty>
+          <p class="chart__empty" *ngIf="forecastError() as forecastErr">{{ forecastErr }}</p>
+          <p class="chart__empty" *ngIf="!forecastError()">Pas assez de points pour générer une prévision.</p>
+        </ng-template>
+        <p class="chart__caption" *ngIf="forecast() as forecastData">
+          Dernier volume observé: {{ forecastData.lastObservedCount }} • Moyenne glissante: {{ forecastData.baselineAverage | number: '1.0-1' }}
+        </p>
+      </article>
+
+      <article
+        class="card ai-card smart-assignment ai-fade"
+        [ngClass]="{'card--loading': smartAssignmentLoading()}"
+        aria-live="polite">
+        <header>
+          <div class="ai-card__title">
+            <span class="ai-card__icon" aria-hidden="true">🤖</span>
+            <h3>Recommandation technicien</h3>
+          </div>
+          <span class="ai-badge ai-badge--secondary">Explicable</span>
+        </header>
+        <p class="ai-card__intro">Distance, charge et expérience sont combinées pour suggérer le meilleur technicien.</p>
+        <div class="smart-assignment__location" aria-live="polite">
+          <div
+            class="smart-assignment__location-chip"
+            [class.smart-assignment__location-chip--empty]="!smartAssignmentHasLocation()">
+            <span class="smart-assignment__location-icon" aria-hidden="true">📍</span>
+            <span>{{ smartAssignmentLocationLabel() || 'Localisation non définie' }}</span>
+          </div>
+          <button
+            type="button"
+            class="button button--outline"
+            (click)="openSmartAssignmentMap()"
+            [disabled]="smartAssignmentLoading() || smartAssignmentReadOnly()"
+            [attr.aria-disabled]="smartAssignmentReadOnly() ? 'true' : null"
+            aria-label="Choisir la position de l’intervention sur la carte">
+            Choisir sur la carte
+          </button>
+        </div>
+        <div class="smart-assignment__summary-panel" aria-live="polite">
+          <div class="smart-assignment__thinking" *ngIf="isSmartAssignmentThinking()" role="status">
+            <span class="smart-assignment__loader" aria-hidden="true">🤖</span>
+            <span>L’IA évalue distance, charge, compétences…</span>
+          </div>
+          <ng-container *ngIf="!isSmartAssignmentThinking()">
+            <section
+              class="smart-assignment__summary"
+              *ngIf="smartAssignmentState() === 'result' && smartAssignmentResult() as assignment; else smartAssignmentPlaceholder"
+              aria-live="polite">
+              <div class="smart-assignment__ring"
+                   [style.--progress-percent]="smartAssignmentScore() + '%'"
+                   [style.--ring-color]="smartAssignmentRingColor()">
+                <span>{{ smartAssignmentScore() }}</span>
+              </div>
+              <div class="smart-assignment__summary-content">
+                <div class="smart-assignment__identity">
+                  <h4>
+                    {{ assignment.recommended.fullName }}
+                    <span class="smart-assignment__verified" aria-hidden="true">✔</span>
+                  </h4>
+                  <span class="smart-assignment__email">{{ assignment.recommended.email }}</span>
+                </div>
+                <div class="smart-assignment__chips">
+                  <span class="smart-chip">
+                    📍
+                    {{ assignment.recommended.distanceKm != null ? (assignment.recommended.distanceKm | number: '1.0-1') + ' km' : 'Distance N/D' }}
+                  </span>
+                  <span class="smart-chip">
+                    🧰 Charge {{ workloadLabel(assignment.recommended.openAssignments) }}
+                  </span>
+                  <span class="smart-chip">
+                    ⚡ Compétence {{ skillLabel(assignment.recommended.matchingHistory) }}
+                  </span>
+                </div>
+                <p class="smart-assignment__rationale">
+                  <strong>Raisonnement IA</strong> — {{ assignment.rationale }}
+                </p>
+              </div>
+            </section>
+            <ng-template #smartAssignmentPlaceholder>
+              <p class="smart-assignment__placeholder">
+                Sélectionnez un lieu puis lancez une recommandation pour afficher un technicien suggéré.
+              </p>
+            </ng-template>
+          </ng-container>
+        </div>
+        <p class="smart-assignment__error" *ngIf="smartAssignmentError() as assignmentErr">{{ assignmentErr }}</p>
+        <div class="smart-assignment__actions">
+          <button
+            type="button"
+            class="button button--primary"
+            (click)="onSmartAssignmentSubmit()"
+            [disabled]="smartAssignmentLoading() || !smartAssignmentHasLocation() || smartAssignmentReadOnly()"
+            [attr.aria-disabled]="smartAssignmentReadOnly() ? 'true' : null"
+            aria-label="Lancer une recommandation de technicien">
+            <span class="smart-assignment__button-spinner" *ngIf="smartAssignmentLoading()" aria-hidden="true"></span>
+            Recommander
+          </button>
+          <button
+            type="button"
+            class="button button--ghost"
+            (click)="resetSmartAssignment()"
+            [disabled]="smartAssignmentLoading()"
+            aria-label="Réinitialiser la recommandation">
+            Réinitialiser
+          </button>
+        </div>
+        <div class="smart-assignment__toast" *ngIf="smartAssignmentToast() as toast" role="status">
+          {{ toast }}
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="dashboard__viz">
+    <article class="card chart" [class.chart--loading]="busy()">
+      <header>
+        <h3>Interventions par jour</h3>
+        <p>Tendance consolidée (14 derniers jours).</p>
+      </header>
+      <ng-container *ngIf="!busy(); else chartLoader">
+        <ng-container *ngIf="interventionsPerDayChart() as lineChart">
+          <div class="chart__canvas" *ngIf="lineChart.datasets.length; else lineEmpty">
+            <canvas baseChart [data]="lineChart" [options]="interventionsPerDayOptions" type="line"></canvas>
+          </div>
+        </ng-container>
+        <ng-template #lineEmpty>
+          <p class="chart__empty">Pas assez de données pour afficher la tendance.</p>
+        </ng-template>
+      </ng-container>
+      <p class="chart__caption">Somme quotidienne toutes statuts confondus.</p>
+    </article>
+
+    <article class="card chart" [class.chart--loading]="busy()">
+      <header>
+        <h3>Répartition par statut</h3>
+        <p>Volumes empilés (14 derniers jours).</p>
+      </header>
+      <ng-container *ngIf="!busy(); else chartLoader">
+        <ng-container *ngIf="statusStackedChart() as stackedChart">
+          <div class="chart__canvas" *ngIf="stackedChart.datasets.length; else stackedEmpty">
+            <canvas baseChart [data]="stackedChart" [options]="statusStackedOptions" type="bar"></canvas>
+          </div>
+        </ng-container>
+        <ng-template #stackedEmpty>
+          <p class="chart__empty">Pas de séries disponibles sur la période.</p>
+        </ng-template>
+      </ng-container>
+      <p class="chart__caption">Chaque couleur correspond à un statut d’intervention.</p>
+    </article>
+
+    <article class="card chart" [class.chart--loading]="busy()">
+      <header>
+        <h3>Charge techniciens</h3>
+        <p>Top 8 par interventions ouvertes.</p>
+      </header>
+      <ng-container *ngIf="!busy(); else chartLoader">
+        <ng-container *ngIf="technicianLoadChart() as loadChart">
+          <div class="chart__canvas chart__canvas--horizontal" *ngIf="loadChart.datasets.length; else loadEmpty">
+            <canvas baseChart [data]="loadChart" [options]="technicianLoadOptions" type="bar"></canvas>
+          </div>
+        </ng-container>
+        <ng-template #loadEmpty>
+          <p class="chart__empty">Aucune donnée de charge technicien disponible.</p>
+        </ng-template>
+      </ng-container>
+      <p class="chart__caption">Empilement des interventions ouvertes et terminées aujourd’hui.</p>
+    </article>
+
+    <article class="card chart chart--doughnut" [class.chart--loading]="busy()">
+      <header>
+        <h3>Statuts en temps réel</h3>
+        <p>Répartition actuelle des interventions.</p>
+      </header>
+      <ng-container *ngIf="!busy(); else chartLoader">
+        <ng-container *ngIf="statusDistributionChart() as donutChart">
+          <div class="chart__canvas" *ngIf="donutChart.datasets.length; else donutEmpty">
+            <canvas baseChart [data]="donutChart" [options]="statusDistributionOptions" type="doughnut"></canvas>
+            <ng-container *ngIf="summary() as summaryData">
+              <div class="chart__doughnut-overlay">
+                <span class="chart__doughnut-value">
+                  {{ summaryData.validationRatio != null ? (summaryData.validationRatio | number: '1.0-1') + ' %' : 'N/D' }}
+                </span>
+                <small>Validation</small>
+              </div>
+            </ng-container>
+          </div>
+        </ng-container>
+        <ng-template #donutEmpty>
+          <p class="chart__empty">En attente de données agrégées.</p>
+        </ng-template>
+      </ng-container>
+      <p class="chart__caption">
+        Total suivi: {{ totalSummaryCount() | number }} interventions
+        <span *ngIf="averageCompletionMinutes() as avg">
+          | Durée moyenne: {{ avg | number: '1.0-0' }} min
+        </span>
+      </p>
+    </article>
+  </section>
+
+  <ng-template #chartLoader>
+    <div class="chart__placeholder">
+      <span class="chart__spinner"></span>
+      <span>Chargement des graphiques…</span>
+    </div>
+  </ng-template>
+
+  <article class="card map">
+    <header class="map__header">
+      <h3>Carte des interventions</h3>
+      <p>Visualisation temps réel des interventions géolocalisées.</p>
+    </header>
+    <div class="map__container">
+      <div
+        #mapContainer
+        class="map__canvas"
+        [class.map__canvas--empty]="mapMarkers().length === 0"
+        aria-label="Carte des interventions">
+      </div>
+    </div>
+  </article>
+
+  <div class="ai-drawer" *ngIf="smartAssignmentMapOpen()">
+    <div class="ai-drawer__backdrop" (click)="closeSmartAssignmentMap()" aria-hidden="true"></div>
+    <aside class="ai-drawer__panel" role="dialog" aria-modal="true" aria-label="Sélection de localisation et techniciens alternatifs">
+      <header class="ai-drawer__header">
+        <h4>Choisir la position de l’intervention</h4>
+        <button type="button" class="ai-drawer__close" (click)="closeSmartAssignmentMap()" aria-label="Fermer la sélection">×</button>
+      </header>
+      <div class="ai-drawer__body">
+        <div class="ai-drawer__map" #smartMapContainer></div>
+        <section class="ai-drawer__details">
+          <div class="ai-drawer__section">
+            <h5>Position sélectionnée</h5>
+            <p *ngIf="smartAssignmentLocationLabel(); else drawerNoLocation">
+              {{ smartAssignmentLocationLabel() }}
+            </p>
+            <ng-template #drawerNoLocation>
+              <p>Cliquer sur la carte pour définir le lieu.</p>
+            </ng-template>
+          </div>
+          <div class="ai-drawer__section" *ngIf="smartAssignmentResult() as assignment">
+            <h5>Technicien recommandé</h5>
+              <div class="ai-drawer__recommendation">
+                <div>
+                  <strong>{{ assignment.recommended.fullName }}</strong>
+                  <span>{{ assignment.recommended.email }}</span>
+                  <small>
+                    Score {{ assignment.recommended.overallScore * 100 | number: '1.0-1' }} % •
+                    Distance {{ assignment.recommended.distanceKm != null ? (assignment.recommended.distanceKm | number: '1.0-1') + ' km' : 'N/A' }}
+                  </small>
+                </div>
+                <div class="ai-drawer__validate">
+                  <button
+                    type="button"
+                    class="button button--primary button--compact"
+                    (click)="applyRecommendation(assignment.recommended)"
+                    aria-label="Assigner {{ assignment.recommended.fullName }}">
+                    Assigner
+                  </button>
+                </div>
+              </div>
+              <p class="ai-drawer__rationale">
+                <strong>Raisonnement IA</strong> — {{ assignment.rationale }}
+              </p>
+            <div class="ai-drawer__section ai-drawer__section--nested" *ngIf="assignment.alternatives.length">
+              <h5>Alternatives classées</h5>
+              <ul class="ai-drawer__alt-list">
+                <li *ngFor="let alt of assignment.alternatives">
+                  <div class="ai-drawer__alt-card">
+                    <div>
+                      <strong>{{ alt.fullName }}</strong>
+                      <span>{{ alt.email }}</span>
+                      <small>
+                        Score {{ alt.overallScore * 100 | number: '1.0-1' }} % • Charge {{ workloadLabel(alt.openAssignments) }}
+                      </small>
+                    </div>
+                    <button
+                      type="button"
+                      class="button button--outline button--compact"
+                      (click)="applyRecommendation(alt)"
+                      aria-label="Assigner {{ alt.fullName }}">
+                      Assigner
+                    </button>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+            <div class="ai-drawer__section" *ngIf="!smartAssignmentResult()">
+              <h5>Conseil</h5>
+              <p>Choisir un emplacement puis demander une recommandation pour visualiser les techniciens les plus pertinents.</p>
+            </div>
+          <div class="ai-drawer__validate ai-drawer__validate--footer" *ngIf="smartAssignmentResult()">
+            <button
+              type="button"
+              class="button button--primary"
+              (click)="applyRecommendation()"
+              aria-label="Assigner le technicien recommandé">
+              Valider la recommandation
+            </button>
+          </div>
+        </section>
+      </div>
+    </aside>
+  </div>
+</section>

@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, PLATFORM_ID, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  PLATFORM_ID,
+  afterNextRender,
+  computed,
+  inject,
+  signal
+} from '@angular/core';
 import { CommonModule, DatePipe, isPlatformBrowser } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -81,10 +89,14 @@ export class UsersPageComponent {
   protected readonly currentUserEmail = computed(() => this.auth.email());
   protected readonly isAdmin = computed(() => this.activeRole() === 'ADMIN');
   protected readonly showingCreate = signal(false);
+  protected readonly skeletonRows = Array.from({ length: 6 });
+  protected readonly skeletonColumns = Array.from({ length: 5 });
 
   constructor() {
     if (this.isBrowser) {
-      void this.loadUsers(0);
+      afterNextRender(() => {
+        void this.loadUsers(0);
+      });
     }
   }
 
@@ -156,7 +168,7 @@ export class UsersPageComponent {
   }
 
   startEdit(user: UserResponseDto): void {
-    if (!this.canEditUser(user)) {
+    if (!this.isAdmin()) {
       return;
     }
     this.editingUser.set(user);
@@ -283,7 +295,7 @@ export class UsersPageComponent {
     }
     const { currentPassword, newPassword, confirmPassword } = this.changePasswordForm.getRawValue();
     if (newPassword !== confirmPassword) {
-      this.changePasswordError.set('Passwords do not match');
+      this.changePasswordError.set('Les mots de passe ne correspondent pas');
       return;
     }
     this.changingPassword.set(true);
@@ -301,18 +313,11 @@ export class UsersPageComponent {
     }
   }
 
-  logout(): void {
-    this.auth.logout();
+  async logout(): Promise<void> {
+    await this.auth.logout();
     this.cancelEdit();
     this.page.set(null);
-    void this.router.navigate(['/login']);
-  }
-
-  protected canEditUser(user: UserResponseDto): boolean {
-    if (this.isAdmin()) {
-      return true;
-    }
-    return this.isSelf(user);
+    await this.router.navigate(['/login']);
   }
 
   protected canDeleteUser(user: UserResponseDto): boolean {
@@ -333,13 +338,17 @@ export class UsersPageComponent {
   protected describeError(error: unknown): string {
     if (error instanceof HttpErrorResponse) {
       if (error.status === 401) {
-        this.auth.logout();
+        void this.auth.logout();
         void this.router.navigate(['/login']);
-        return 'Authentication required';
+        return 'Authentification requise';
       }
       const detail = (error.error?.detail as string | undefined) ?? error.message;
-      return detail || 'Request failed';
+      return detail || 'La requête a échoué';
     }
-    return 'Request failed';
+    return 'La requête a échoué';
+  }
+
+  protected trackByUserId(_index: number, user: UserResponseDto): number {
+    return user.id;
   }
 }
