@@ -1,9 +1,11 @@
 package io.smartip.dashboard;
 
+import io.smartip.dashboard.dto.AiInsightResponse;
 import io.smartip.dashboard.dto.DashboardSummaryResponse;
 import io.smartip.dashboard.dto.InterventionMapMarker;
 import io.smartip.dashboard.dto.StatusTrendPoint;
 import io.smartip.dashboard.dto.TechnicianLoadResponse;
+import io.smartip.dashboard.dto.ForecastResponse;
 import io.smartip.domain.UserRole;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Positive;
@@ -65,6 +67,24 @@ public class DashboardController {
         UserRole role = resolveRole(authentication);
         String email = authentication.getName();
         return dashboardService.getTechnicianLoad(email, role);
+    }
+
+    @GetMapping("/ai/insights")
+    @PreAuthorize("hasAnyRole('ADMIN','DISPATCHER','TECH')")
+    public AiInsightResponse getAiInsights(
+            Authentication authentication,
+            @RequestParam(value = "date", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        UserRole role = resolveRole(authentication);
+        return dashboardService.getAiInsights(date, authentication.getName(), role);
+    }
+
+    @GetMapping("/ai/forecast")
+    @PreAuthorize("hasAnyRole('ADMIN','DISPATCHER','TECH')")
+    public ForecastResponse getForecast(
+            Authentication authentication,
+            @RequestParam(value = "date", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        UserRole role = resolveRole(authentication);
+        return dashboardService.getForecast(date, authentication.getName(), role);
     }
 
     @GetMapping("/map")

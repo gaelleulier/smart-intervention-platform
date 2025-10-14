@@ -1,7 +1,8 @@
 import { CommonModule, DOCUMENT } from '@angular/common';
-import { Component, DestroyRef, effect, inject } from '@angular/core';
+import { Component, DestroyRef, computed, effect, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { ShellStateService } from './shell-state.service';
+import { AuthService } from '../auth/auth.service';
 
 @Component({
   selector: 'app-shell',
@@ -13,6 +14,19 @@ import { ShellStateService } from './shell-state.service';
 export class AppShellComponent {
   protected readonly shellState = inject(ShellStateService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly auth = inject(AuthService);
+  protected readonly demoBanner = computed(() => {
+    const email = this.auth.email();
+    const role = this.auth.role();
+    if (!email || !role) {
+      return null;
+    }
+    return {
+      email,
+      role,
+      roleLabel: this.formatRole(role)
+    };
+  });
 
   constructor() {
     const documentRef = inject(DOCUMENT, { optional: true }) as Document | undefined;
@@ -34,5 +48,20 @@ export class AppShellComponent {
 
   protected toggleSidebar(): void {
     this.shellState.toggle();
+  }
+
+  private formatRole(role: string): string {
+    const normalized = role.trim().toUpperCase();
+    switch (normalized) {
+      case 'DISPATCHER':
+        return 'Dispatch';
+      case 'TECH':
+      case 'TECHNICIAN':
+        return 'Technicien';
+      case 'ADMIN':
+        return 'Administrateur';
+      default:
+        return normalized.charAt(0) + normalized.slice(1).toLowerCase();
+    }
   }
 }

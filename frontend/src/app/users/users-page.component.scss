@@ -107,6 +107,14 @@
   color: #6b7280;
 }
 
+.edit__readonly {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  background: rgba(148, 163, 184, 0.15);
+  color: #475569;
+}
+
 .field {
   display: flex;
   flex-direction: column;

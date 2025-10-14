@@ -122,6 +122,26 @@ class DashboardRepository {
             FROM analytics.intervention_geo_view
             """;
 
+    private static final String DAILY_TOTALS_QUERY = """
+            SELECT metric_date,
+                   SUM(total_count) AS total_count
+            FROM analytics.intervention_daily_metrics
+            WHERE metric_date BETWEEN ? AND ?
+            GROUP BY metric_date
+            ORDER BY metric_date ASC
+            """;
+
+    private static final String DAILY_TOTALS_TECHNICIAN_QUERY = """
+            SELECT
+                CAST(COALESCE(planned_at, started_at, created_at) AS DATE) AS metric_date,
+                COUNT(*) AS total_count
+            FROM interventions
+            WHERE technician_id = ?
+              AND CAST(COALESCE(planned_at, started_at, created_at) AS DATE) BETWEEN ? AND ?
+            GROUP BY metric_date
+            ORDER BY metric_date ASC
+            """;
+
     private final JdbcTemplate jdbcTemplate;
 
     DashboardRepository(JdbcTemplate jdbcTemplate) {
@@ -168,11 +188,11 @@ class DashboardRepository {
                 to);
     }
 
-    List<TechnicianLoadRow> fetchTechnicianLoads() {
+    List<TechnicianLoadSnapshot> fetchTechnicianLoadSnapshots() {
         return jdbcTemplate.query(TECHNICIAN_LOAD_QUERY_BASE + TECHNICIAN_LOAD_ORDER, this::mapTechnicianLoad);
     }
 
-    List<TechnicianLoadRow> fetchTechnicianLoad(long technicianId) {
+    List<TechnicianLoadSnapshot> fetchTechnicianLoad(long technicianId) {
         return jdbcTemplate.query(
                 TECHNICIAN_LOAD_QUERY_BASE + " WHERE t.technician_id = ?" + TECHNICIAN_LOAD_ORDER,
                 this::mapTechnicianLoad,
@@ -217,6 +237,39 @@ class DashboardRepository {
                 mapInterventionMarker());
     }
 
+    Map<LocalDate, Long> fetchDailyTotals(LocalDate from, LocalDate to, Long technicianId) {
+        Map<LocalDate, Long> totals = new HashMap<>();
+        if (technicianId == null) {
+            jdbcTemplate.query(
+                    DAILY_TOTALS_QUERY,
+                    (org.springframework.jdbc.core.ResultSetExtractor<Void>) rs -> {
+                        while (rs.next()) {
+                            totals.put(
+                                    rs.getObject("metric_date", LocalDate.class),
+                                    rs.getLong("total_count"));
+                        }
+                        return null;
+                    },
+                    from,
+                    to);
+        } else {
+            jdbcTemplate.query(
+                    DAILY_TOTALS_TECHNICIAN_QUERY,
+                    (org.springframework.jdbc.core.ResultSetExtractor<Void>) rs -> {
+                        while (rs.next()) {
+                            totals.put(
+                                    rs.getObject("metric_date", LocalDate.class),
+                                    rs.getLong("total_count"));
+                        }
+                        return null;
+                    },
+                    technicianId,
+                    from,
+                    to);
+        }
+        return totals;
+    }
+
     private DailyMetricRow mapDailyMetric(ResultSet rs, int rowNum) throws SQLException {
         return new DailyMetricRow(
                 rs.getString("status"),
@@ -226,8 +279,8 @@ class DashboardRepository {
                 getInstant(rs, "last_refreshed_at"));
     }
 
-    private TechnicianLoadRow mapTechnicianLoad(ResultSet rs, int rowNum) throws SQLException {
-        return new TechnicianLoadRow(
+    private TechnicianLoadSnapshot mapTechnicianLoad(ResultSet rs, int rowNum) throws SQLException {
+        return new TechnicianLoadSnapshot(
                 rs.getLong("technician_id"),
                 rs.getString("full_name"),
                 rs.getString("email"),
@@ -265,13 +318,4 @@ class DashboardRepository {
 
     record DailyMetricRow(
             String status, long count, Double averageCompletionSeconds, Double validationRatio, Instant refreshedAt) {}
-
-    record TechnicianLoadRow(
-            long technicianId,
-            String fullName,
-            String email,
-            long openCount,
-            long completedToday,
-            Double averageCompletionSeconds,
-            Instant lastRefreshedAt) {}
 }

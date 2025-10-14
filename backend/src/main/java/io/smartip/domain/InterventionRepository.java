@@ -19,4 +19,8 @@ public interface InterventionRepository
     List<InterventionEntity> findAllByPlannedAtBetween(Instant from, Instant to);
 
     long countByTechnician_IdAndStatusIn(Long technicianId, Collection<InterventionStatus> statuses);
+
+    java.util.Optional<InterventionEntity> findFirstByTechnician_IdAndLatitudeIsNotNullAndLongitudeIsNotNullOrderByUpdatedAtDesc(Long technicianId);
+
+    List<InterventionEntity> findTop20ByTechnician_IdAndStatusInOrderByUpdatedAtDesc(Long technicianId, Collection<InterventionStatus> statuses);
 }

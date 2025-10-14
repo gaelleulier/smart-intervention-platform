@@ -6,7 +6,11 @@ import {
   DashboardSummaryResponse,
   InterventionMapMarker,
   StatusTrendPoint,
-  TechnicianLoadResponse
+  TechnicianLoadResponse,
+  AiInsightResponse,
+  ForecastResponse,
+  SmartAssignmentRequestPayload,
+  SmartAssignmentResponsePayload
 } from './dashboard.models';
 
 @Injectable({ providedIn: 'root' })
@@ -48,5 +52,31 @@ export class DashboardService {
       params = params.set('limit', String(limit));
     }
     return this.http.get<InterventionMapMarker[]>(`${this.baseUrl}/map`, { params });
+  }
+
+  getAiInsights(date?: string): Observable<AiInsightResponse> {
+    let params = new HttpParams();
+    if (date) {
+      params = params.set('date', date);
+    }
+    return this.http.get<AiInsightResponse>(`${this.baseUrl}/ai/insights`, { params });
+  }
+
+  getForecast(date?: string): Observable<ForecastResponse> {
+    let params = new HttpParams();
+    if (date) {
+      params = params.set('date', date);
+    }
+    return this.http.get<ForecastResponse>(`${this.baseUrl}/ai/forecast`, { params });
+  }
+
+  recommendTechnician(payload: SmartAssignmentRequestPayload): Observable<SmartAssignmentResponsePayload> {
+    const body = {
+      ...payload,
+      latitude: payload.latitude ?? null,
+      longitude: payload.longitude ?? null,
+      interventionId: payload.interventionId ?? null
+    };
+    return this.http.post<SmartAssignmentResponsePayload>(`/api/interventions/recommendation`, body);
   }
 }

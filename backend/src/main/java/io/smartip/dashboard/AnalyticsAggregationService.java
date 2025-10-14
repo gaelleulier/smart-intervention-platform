@@ -57,7 +57,7 @@ public class AnalyticsAggregationService {
         if (refreshEnabled) {
             refreshAnalytics();
         } else {
-            LOGGER.debug("Dashboard analytics scheduler disabled (dashboard.analytics.refresh-enabled=false)");
+            //LOGGER.debug("Dashboard analytics scheduler disabled (dashboard.analytics.refresh-enabled=false)");
         }
     }
 

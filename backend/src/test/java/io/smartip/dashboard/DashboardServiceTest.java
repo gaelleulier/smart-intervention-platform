@@ -9,7 +9,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.smartip.dashboard.DashboardRepository.DailyMetricRow;
-import io.smartip.dashboard.DashboardRepository.TechnicianLoadRow;
 import io.smartip.dashboard.dto.DashboardSummaryResponse;
 import io.smartip.dashboard.dto.InterventionMapMarker;
 import io.smartip.dashboard.dto.TechnicianLoadResponse;
@@ -68,8 +67,8 @@ class DashboardServiceTest {
     @Test
     void technicianLoadReturnsAllForAdmin() {
         Instant refreshed = Instant.parse("2025-10-07T11:00:00Z");
-        when(repository.fetchTechnicianLoads()).thenReturn(List.of(
-                new TechnicianLoadRow(1L, "Alice Tech", "alice@example.com", 2, 4, 600.0, refreshed)));
+        when(repository.fetchTechnicianLoadSnapshots()).thenReturn(List.of(
+                new TechnicianLoadSnapshot(1L, "Alice Tech", "alice@example.com", 2, 4, 600.0, refreshed)));
 
         List<TechnicianLoadResponse> responses = service.getTechnicianLoad("admin@example.com", UserRole.ADMIN);
 
@@ -79,7 +78,7 @@ class DashboardServiceTest {
         assertThat(response.openCount()).isEqualTo(2);
         assertThat(response.completedToday()).isEqualTo(4);
         assertThat(response.averageCompletionSeconds()).isEqualTo(600.0);
-        verify(repository).fetchTechnicianLoads();
+        verify(repository).fetchTechnicianLoadSnapshots();
     }
 
     @Test
@@ -90,7 +89,7 @@ class DashboardServiceTest {
         tech.setRole(UserRole.TECH);
         when(userRepository.findByEmailIgnoreCase("tech@example.com")).thenReturn(Optional.of(tech));
         when(repository.fetchTechnicianLoad(7L)).thenReturn(List.of(
-                new TechnicianLoadRow(7L, "Tech Seven", "tech@example.com", 1, 2, 480.0, Instant.now())));
+                new TechnicianLoadSnapshot(7L, "Tech Seven", "tech@example.com", 1, 2, 480.0, Instant.now())));
 
         List<TechnicianLoadResponse> responses = service.getTechnicianLoad("tech@example.com", UserRole.TECH);
 

@@ -168,7 +168,7 @@ export class UsersPageComponent {
   }
 
   startEdit(user: UserResponseDto): void {
-    if (!this.canEditUser(user)) {
+    if (!this.isAdmin()) {
       return;
     }
     this.editingUser.set(user);
@@ -295,7 +295,7 @@ export class UsersPageComponent {
     }
     const { currentPassword, newPassword, confirmPassword } = this.changePasswordForm.getRawValue();
     if (newPassword !== confirmPassword) {
-      this.changePasswordError.set('Passwords do not match');
+      this.changePasswordError.set('Les mots de passe ne correspondent pas');
       return;
     }
     this.changingPassword.set(true);
@@ -320,13 +320,6 @@ export class UsersPageComponent {
     await this.router.navigate(['/login']);
   }
 
-  protected canEditUser(user: UserResponseDto): boolean {
-    if (this.isAdmin()) {
-      return true;
-    }
-    return this.isSelf(user);
-  }
-
   protected canDeleteUser(user: UserResponseDto): boolean {
     return this.isAdmin();
   }
@@ -347,12 +340,12 @@ export class UsersPageComponent {
       if (error.status === 401) {
         void this.auth.logout();
         void this.router.navigate(['/login']);
-        return 'Authentication required';
+        return 'Authentification requise';
       }
       const detail = (error.error?.detail as string | undefined) ?? error.message;
-      return detail || 'Request failed';
+      return detail || 'La requête a échoué';
     }
-    return 'Request failed';
+    return 'La requête a échoué';
   }
 
   protected trackByUserId(_index: number, user: UserResponseDto): number {
