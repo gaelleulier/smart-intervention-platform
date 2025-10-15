@@ -4,10 +4,30 @@ services:
     image: postgres:16-alpine
     container_name: ${PROJECT_NAME}-db
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.6"
+          memory: 640M
+        reservations:
+          cpus: "0.3"
+          memory: 384M
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=20"
+      - "-c"
+      - "shared_buffers=192MB"
+      - "-c"
+      - "work_mem=4MB"
+      - "-c"
+      - "maintenance_work_mem=64MB"
+      - "-c"
+      - "effective_cache_size=512MB"
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
@@ -20,6 +40,14 @@ services:
     build: ./backend
     container_name: ${PROJECT_NAME}-backend
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.9"
+          memory: 512M
+        reservations:
+          cpus: "0.4"
+          memory: 320M
     depends_on:
       db:
         condition: service_healthy
@@ -31,8 +59,9 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       SPRING_JPA_HIBERNATE_DDL_AUTO: validate
       SERVER_PORT: 8080
-    ports:
-      - "${BACKEND_PORT}:8080"
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 8
+      SERVER_TOMCAT_THREADS_MAX: 64
+      JAVA_TOOL_OPTIONS: "-Xms256m -Xmx512m -XX:MaxGCPauseMillis=200 -XX:+UseG1GC -Djava.security.egd=file:/dev/urandom"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/api/health || exit 1"]
       interval: 10s
@@ -44,6 +73,14 @@ services:
     build: ./frontend
     container_name: ${PROJECT_NAME}-frontend
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.3"
+          memory: 192M
+        reservations:
+          cpus: "0.15"
+          memory: 96M
     environment:
       - NODE_ENV=production
     ports:

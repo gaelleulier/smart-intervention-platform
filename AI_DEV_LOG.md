@@ -299,3 +299,15 @@ The goal is to improve responsiveness, traceability, and operational efficiency 
   - [ ] Update GitLab CI (.gitlab-ci.yml) IF needed
 - Notes:
   - `npm run build -- --configuration=development`
+
+### 2025-10-15-T:07:27:26 - Cap production resource usage
+- Summary:
+  - Bounded CPU and memory budgets per service in `docker-compose.prod.yml` so the stack safely fits a 2 vCPU / 2 GB VM.
+  - Tuned PostgreSQL runtime flags (connections, shared/work memory) to avoid over-allocation under light loads.
+  - Enforced a constrained JVM heap with G1GC, aligned the pool env var (`SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE`) and kept the backend behind the nginx proxy without host port exposure.
+- Savepoints:
+  - None
+- Required updates:
+  - [ ] Update GitLab CI (.gitlab-ci.yml) IF needed
+- Notes:
+  - Compose resource limits require `docker compose` v2+; reservations leave headroom for the OS and future portfolio apps.
