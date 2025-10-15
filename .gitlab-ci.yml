@@ -187,6 +187,7 @@ deploy:prod:
       fi
     - eval "$(ssh-agent -s)"
     - echo "$DEPLOY_SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - ssh-add "DEPLOY_SSH_PRIVATE_KEY"
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
     - |
       if [ -n "$DEPLOY_KNOWN_HOSTS" ]; then
