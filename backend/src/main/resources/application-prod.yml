@@ -1,0 +1,23 @@
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://db:5432/sip_db}
+    username: ${SPRING_DATASOURCE_USERNAME:sip_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:sip_password}
+    hikari:
+      maximum-pool-size: ${SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE:10}
+  flyway:
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+server:
+  forward-headers-strategy: framework
+
+logging:
+  level:
+    org.springframework.security: warn
+
+dashboard:
+  analytics:
+    refresh-enabled: true
+    history-days: ${DASHBOARD_ANALYTICS_HISTORY_DAYS:14}
+    refresh-interval: ${DASHBOARD_ANALYTICS_REFRESH_INTERVAL:300000}

@@ -4,10 +4,30 @@ services:
     image: postgres:16-alpine
     container_name: ${PROJECT_NAME}-db
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.6"
+          memory: 640M
+        reservations:
+          cpus: "0.3"
+          memory: 384M
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=20"
+      - "-c"
+      - "shared_buffers=192MB"
+      - "-c"
+      - "work_mem=4MB"
+      - "-c"
+      - "maintenance_work_mem=64MB"
+      - "-c"
+      - "effective_cache_size=512MB"
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
@@ -15,9 +35,24 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   backend:
-    build: ./backend
+    image: ${BACKEND_IMAGE:-registry.gitlab.com/gael.leulier.96/smart-intervention-platform/backend:latest}
     container_name: ${PROJECT_NAME}-backend
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.9"
+          memory: 512M
+        reservations:
+          cpus: "0.4"
+          memory: 320M
     depends_on:
       db:
         condition: service_healthy
@@ -26,16 +61,51 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
-    ports:
-      - "${BACKEND_PORT}:8080"
-  frontend:
-    build: ./frontend
+      JWT_SECRET: ${JWT_SECRET}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SERVER_PORT: 8080
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: 8
+      SERVER_TOMCAT_THREADS_MAX: 64
+      JAVA_TOOL_OPTIONS: "-Xms256m -Xmx512m -XX:MaxGCPauseMillis=200 -XX:+UseG1GC -Djava.security.egd=file:/dev/urandom"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+  frontend:   
+    image: ${FRONTEND_IMAGE:-registry.gitlab.com/gael.leulier.96/smart-intervention-platform/frontend:latest}
     container_name: ${PROJECT_NAME}-frontend
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.3"
+          memory: 192M
+        reservations:
+          cpus: "0.15"
+          memory: 96M
     environment:
       - NODE_ENV=production
     ports:
       - "${FRONTEND_PORT}:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost/ | grep -q '<!DOCTYPE html>'"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 volumes:
   db_data:
