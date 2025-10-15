@@ -186,7 +186,6 @@ deploy:prod:
         exit 1
       fi
     - eval "$(ssh-agent -s)"
-    - echo "$DEPLOY_SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
     - ssh-add "DEPLOY_SSH_PRIVATE_KEY"
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
     - |
