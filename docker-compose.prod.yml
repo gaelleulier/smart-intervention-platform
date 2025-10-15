@@ -35,9 +35,14 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   backend:
-    image: ${BACKEND_IMAGE:-smart-intervention-platform/backend:local}
-    build: ./backend
+    image: ${BACKEND_IMAGE:-registry.gitlab.com/gael.leulier.96/smart-intervention-platform/backend:latest}
     container_name: ${PROJECT_NAME}-backend
     restart: unless-stopped
     deploy:
@@ -68,9 +73,13 @@ services:
       timeout: 5s
       retries: 10
       start_period: 15s
-  frontend:
-    image: ${FRONTEND_IMAGE:-smart-intervention-platform/frontend:local}
-    build: ./frontend
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+  frontend:   
+    image: ${FRONTEND_IMAGE:-registry.gitlab.com/gael.leulier.96/smart-intervention-platform/frontend:latest}
     container_name: ${PROJECT_NAME}-frontend
     restart: unless-stopped
     deploy:
@@ -88,5 +97,15 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost/ | grep -q '<!DOCTYPE html>'"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 volumes:
   db_data:

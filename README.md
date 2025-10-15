@@ -1,298 +1,226 @@
 # Smart Intervention Platform
 
-A modern web platform to orchestrate field interventions (work orders, scheduling, technicians, reporting). This repository is a **monorepo** containing the backend (Spring Boot), frontend (Angular), and ops assets (Docker Compose, Makefile).
-
-> Development mode: **Postgres runs in Docker**; **backend** and **frontend** run locally for fast feedback.
+Smart Intervention Platform (SIP) centralizes the planning, supervision, and analysis of field interventions. The project bundles a Spring Boot backend, an Angular frontend, and a PostgreSQL database to deliver a secure, data-driven experience.
 
 ---
 
 ## Architecture
 
 ```
-+---------------------+         REST       +-----------------------+         +----------------+
-|  Angular (SPA)      |  <-------------->  |  Spring Boot (API)    |  <----> |  Postgres 16   |
-|http://localhost:4200|                    |  http://localhost:8080|         |  Docker        |
-+---------------------+                    +-----------------------+         +----------------+
+                ┌──────────────────────────┐
+                │        Browser UI        │
+                └─────────────┬────────────┘
+                              │ HTTPS
+        ┌─────────────────────▼─────────────────────────────┐
+        │ Angular app                                       │
+        │ • Dev: Angular dev server (http://localhost:4200) │
+        │ • Prod: Nginx serves the bundle and proxies /api  │
+        └─────────────────────┬─────────────────────────────┘
+                              │ REST (JSON)
+                  ┌───────────▼───────────┐
+                  │ Spring Boot backend   │
+                  │ • HttpOnly JWT auth   │
+                  │ • Dashboard + AI      │
+                  │ • Demo simulator      │
+                  └───────────┬───────────┘
+                              │ JDBC / Flyway
+                  ┌───────────▼───────────┐
+                  │ PostgreSQL 16         │
+                  │ • Operational data    │
+                  │ • Analytics tables    │
+                  └───────────────────────┘
 ```
 
-* **Frontend**: Angular (TypeScript), dev server with proxy to `/api`.
-* **Backend**: Spring Boot (Java 21), JPA/Hibernate, Flyway, Actuator.
-* **Database**: PostgreSQL 16 (Dockerized in development).
+* **Frontend**: Angular 18 (Node 22). In production Nginx ships the static bundle and reverse proxies `/api` to the backend container.
+* **Backend**: Spring Boot 3.5 (Java 21). Exposes REST APIs, handles authentication with HttpOnly cookies, delivers AI insights, and runs scheduled demo simulators.
+* **Database**: PostgreSQL 16 with Flyway migrations, Toulouse demo seed, and analytics tables consumed by the dashboard.
+
+---
+
+## Key Capabilities
+
+- Real-time dashboard with Leaflet map and Chart.js visuals (daily trend, status mix, technician workload, live distribution).
+- AI assistants for insights, 7-day forecast, and technician recommendation with transparent rationales.
+- Intervention module: create/update with map picker, delete, filter, assign.
+- User management: ADMIN/DISPATCHER/TECH roles, safe deletion rules, password change flow.
+- Hardened authentication: HttpOnly cookies, session hydration guard, role-based access restrictions.
+- Built-in Toulouse dataset and scheduled simulator creating synthetic interventions—no external demo datasets required.
 
 ---
 
 ## Tech Stack
 
-* **Java 21**, **Spring Boot 3.5.x**, **Spring Data JPA**, **Flyway**, **Actuator**
-* **Angular 18** (Node 22), **SCSS**
-* **PostgreSQL 16**, **Docker Compose v2**
-* **Makefile** for developer ergonomics
+- **Backend**: Java 21, Spring Boot 3.5.x, Spring Data JPA, Flyway, Actuator.
+- **Frontend**: Angular 18, TypeScript, SCSS, Leaflet, ng2-charts/Chart.js.
+- **Database**: PostgreSQL 16, HikariCP.
+- **Ops**: Docker / Docker Compose v2, Nginx (prod), Makefile, GitLab CI (build & deploy).
 
 ---
 
-## Repository Structure
+## Repository Layout
 
 ```
 smart-intervention-platform/
 ├─ backend/                     # Spring Boot application
-│  ├─ src/main/java/...         # API, domain, config
+│  ├─ src/main/java/...         # APIs, domain, security, simulators
 │  ├─ src/main/resources/       # application*.yml, Flyway migrations
-│  └─ pom.xml                   # Maven build (wrapper: mvnw)
-├─ frontend/                    # Angular application (created via Angular CLI)
-├─ docker-compose.dev.yml       # Dev: Postgres only
-├─ docker-compose.prod.yml      # Prod: skeleton (all services containerized)
-├─ Makefile                     # Common tasks (DB up/down, run apps)
-└─ .env.example                 # Sample environment variables
+│  └─ Dockerfile                # Backend image (JAR)
+├─ frontend/                    # Angular application + SSR bundle
+│  └─ Dockerfile                # Frontend image (Nginx)
+├─ docker-compose.dev.yml       # Development stack (Postgres)
+├─ docker-compose.prod.yml      # Production stack (db + backend + frontend)
+├─ Makefile                     # Handy commands (dev/prod/tests)
+├─ scripts/                     # Infra scripts (e.g. Flink deps)
+├─ infra/                       # Deployment / CI assets
 ```
-
-> If the `frontend/` folder is not present yet, generate it with Angular CLI (see **Prerequisites** & **Run – Development**).
 
 ---
 
 ## Environments
 
-* **Development**
+### Development
 
-  * Postgres runs in Docker (`docker-compose.dev.yml`).
-  * Backend runs locally with profile `dev` (datasource points to the Docker DB).
-  * Frontend runs with Angular dev server and a proxy to the backend.
-* **Production**
+- PostgreSQL runs in Docker (`docker-compose.dev.yml`).
+- Backend: `dev` profile, `./mvnw spring-boot:run`, exposed on `http://localhost:8080`.
+- Frontend: `npm run start`, Angular proxy forwards `/api`.
 
-  * All services containerized. `docker-compose.prod.yml` is provided as a skeleton; Dockerfiles are introduced in a later milestone.
 
 ---
 
 ## Prerequisites
 
-* **Docker** + **Docker Compose v2** (`docker compose` command)
-* **Java 21** (Temurin recommended)
-* **Node 22** + **npm** (via `nvm` recommended)
-
-Optional but recommended: VS Code + Java/Angular/Docker extensions.
+- Docker + Docker Compose v2 (`docker compose` command).
+- Java 21 (Temurin recommended).
+- Node.js 22 + npm (install via `nvm` is convenient).
+- Make (for the provided shortcuts) and `jq` for quick JSON checks.
 
 ---
 
 ## Configuration
 
-Copy the example file and adjust values if needed:
+Clone the repository and copy the environment variables template:
 
 ```bash
 cp .env.example .env
 ```
 
-Minimal `.env` (excerpt):
+Essential variables:
 
 ```env
 PROJECT_NAME=smart-intervention-platform
 POSTGRES_USER=sip_user
 POSTGRES_PASSWORD=sip_password
 POSTGRES_DB=sip_db
-POSTGRES_PORT=5432
-POSTGRES_HOST=localhost
 SPRING_PROFILES_ACTIVE=dev
-BACKEND_PORT=8080
-FRONTEND_PORT=4200
+BACKEND_PORT=8080           # Development only
+FRONTEND_PORT=4200          # Development only
+JWT_SECRET=change-me        # Required for JWT cookies
 ```
+
+In production the frontend is the only container exposing a port (80 by default); the backend stays internal to the Docker network.
 
 ---
 
-## Run – Development (3 commands)
+## Run – Development
 
-> Open **three terminals** at the repository root.
+> Use three terminals at the repository root.
 
-### 1) Database (Docker)
+1. **Database**
+   ```bash
+   make env-up
+   docker compose -f docker-compose.dev.yml --env-file .env ps
+   ```
+2. **Backend**
+   ```bash
+   make backend-run
+   curl -s http://localhost:8080/api/health | jq
+   ```
+3. **Frontend**
+   ```bash
+   make frontend-run
+   # Opens http://localhost:4200
+   ```
 
-```bash
-make env-up
-# Equivalent: docker compose -f docker-compose.dev.yml --env-file .env up -d
-```
+Log in with the seeded administrator (`admin@sip.local` / `Admin123!`) or use the “Try as Dispatcher/Technician” shortcuts on the login screen.
 
-Check status:
-
-```bash
-docker compose -f docker-compose.dev.yml --env-file .env ps
-# db service must be "healthy"
-```
-
-### 2) Backend (Spring Boot)
-
-```bash
-make backend-run
-# Equivalent: cd backend && SPRING_PROFILES_ACTIVE=dev ./mvnw -q -DskipTests spring-boot:run
-```
-
-Health check:
-
-```bash
-curl -s http://localhost:8080/api/health | jq
-# { "status": "UP", "db": 1 }
-```
-
-### 3) Frontend (Angular)
-
-Ensure Node 22 is active in this terminal (e.g., `nvm use 22`). Then:
-
-```bash
-make frontend-run
-# Equivalent: cd frontend && npm install && npm run start
-```
-
-Open the UI: `http://localhost:4200` (you will be redirected to the login screen).
+To stop everything: `Ctrl+C` in backend & frontend terminals, then `make env-down` (append `-v` to reset the database).
 
 ---
 
-## Optional: CDC & Analytics Stack
+## Demo Data
 
-To enable the near real-time dashboard pipeline (Debezium → Kafka → Flink):
-
-1. **Start the extended stack** – the same `make env-up` now launches Zookeeper, Kafka, Kafka Connect, Flink and Kafka UI in addition to Postgres.
-2. **Download Flink JDBC dependency (one time):**
-   ```bash
-   ./scripts/download-flink-deps.sh
-   ```
-3. **Register Debezium connector:**
-   ```bash
-   ./scripts/register-connectors.sh
-   ```
-4. **Submit the Flink SQL job (credentials are read from `.env`):**
-   ```bash
-   ./scripts/submit-flink-job.sh
-   ```
-
-Access the tooling:
-
-- Kafka UI: <http://localhost:8085>
-- Kafka Connect REST API: <http://localhost:8083>
-- Flink dashboard: <http://localhost:8081>
-
-Each change to the `interventions` table produces an event on `sip.interventions`. The Flink job aggregates these events and upserts the results into `analytics.intervention_daily_metrics`, `analytics.intervention_technician_load`, and `analytics.intervention_geo_view`, which power the dashboard API.
-
-> **Demo datasets:** NYC 311 Service Requests, Chicago Building Permits, or Paris Opendata interventions can be mapped to the SIP schema (reference, title, timestamps, technician, latitude/longitude) to populate realistic scenarios.
+- `V12__seed_toulouse_demo_data.sql` loads interventions around Toulouse.
+- `InterventionDemoSimulator` (runs every 10 minutes) inserts synthetic interventions and prunes the table when exceeding configurable thresholds (`DEMO_MAX_ROWS`, `DEMO_BATCH_DELETE`).
+- To disable the simulator in production, set `DEMO_SIMULATOR_ENABLED=false` (environment variable or `application-prod.yml` override).
 
 ---
 
-## Stop – Development
+## Run – Production (local rehearsal)
 
-Stop app servers with `Ctrl + C` in their terminals.
-
-Stop the database:
-
-```bash
-make env-down
-# Equivalent: docker compose -f docker-compose.dev.yml --env-file .env down -v
-```
-
-> `-v` removes volumes (database is wiped). Omit `-v` if you want to keep data.
-
----
-
-## Run – Production (Docker Compose)
-
-> This mode builds production images (Spring Boot JAR + Angular static bundle) and serves everything through Docker. Use it to rehearse deployments locally.
-
-1. **Prepare environment variables**
-   ```bash
-   cp .env.example .env # if you have not done so
-   # Optional: adjust exposed ports for production rehearsal
-   # BACKEND_PORT=8080
-   # FRONTEND_PORT=8081
-   ```
-   Ensure `JWT_SECRET` is set to a strong value; the example is only for local usage.
-
-2. **Build and start the stack**
+1. Review `.env` (optionally override `FRONTEND_PORT`, set a strong `JWT_SECRET`).
+2. Build and start:
    ```bash
    make prod-up
    ```
-   This runs `docker compose -f docker-compose.prod.yml --env-file .env up -d` and builds both images.
-
-3. **Smoke-test**
+3. Check status:
    ```bash
-   curl -s http://localhost:${BACKEND_PORT:-8080}/api/health | jq
-   # Open http://localhost:${FRONTEND_PORT:-8081} in your browser
+   make prod-ps
+   curl -s http://localhost:${FRONTEND_PORT}/api/health | jq    # via the Nginx proxy
    ```
-
-4. **Inspect logs / status**
+4. Tail logs:
    ```bash
-   make prod-logs   # Follows all service logs (Ctrl+C to exit)
-   make prod-ps     # Displays container status
+   make prod-logs
    ```
-
-5. **Stop the production stack**
+5. Stop the stack:
    ```bash
    make prod-down
    ```
-   This keeps database volumes intact; append `-v` manually if you want a clean slate.
 
-> Tip: The frontend container proxies `/api` requests to the backend container, so cookies and CORS match the production behaviour.
+Resource limits (`deploy.resources`) keep the stack within the VPS budget so additional apps can run alongside SIP.
 
 ---
 
 ## Make Targets
 
 ```makefile
-env-up         # Start Postgres (dev)
-env-down       # Stop Postgres and REMOVE volumes (-v)
-backend-run    # Run backend with dev profile
-frontend-run   # Run Angular dev server (proxy /api)
-db-cli         # psql inside the Postgres container
-env-ps         # (optional) Show compose services status
-db-logs        # (optional) Tail Postgres container logs
+env-up / env-down    # Start/stop Postgres (dev)
+backend-run          # Spring Boot dev profile
+frontend-run         # Angular dev server
+prod-up / prod-down  # Full Docker stack
+prod-logs / prod-ps  # Inspect production stack
+db-cli               # psql inside the Postgres container
 ```
 
 ---
 
 ## Database & Migrations
 
-* Migrations live in `backend/src/main/resources/db/migration` and are applied by **Flyway** on backend startup.
-* Current scripts provision the `users` table (unique email, password hash, roles) and seed a bootstrap administrator.
-
-Inspect from the container:
-
-```bash
-make db-cli
-# psql> \dt
-# psql> SELECT * FROM flyway_schema_history ORDER BY installed_rank;
-# psql> SELECT * FROM demo;
-```
-
----
-
-## Users Module (MVP)
-
-* **Backend API** (`/api/users`): supports pagination (`page`, `size`), search (`query` matches email/full name), and role filtering (`role=ADMIN|DISPATCHER|TECH`) alongside full CRUD endpoints. Creation and updates require a password (min. 8 characters including letters and digits).
-* **Frontend UI**: sign in at `http://localhost:4200/login`, then manage accounts at `http://localhost:4200/users` (list, filter, create, edit, delete). A “Change your password” panel updates the currently logged-in user and forces re-authentication.
-* Validation and errors: API returns RFC 7807 `ProblemDetail` payloads; the UI surfaces any backend error inline for faster troubleshooting.
+- Migrations live in `backend/src/main/resources/db/migration`.
+- Flyway executes on backend startup (dev & prod).
+- Analytics tables are hydrated by the backend—no external pipeline required.
+- Inspect with:
+  ```bash
+  make db-cli
+  \dt
+  SELECT * FROM flyway_schema_history ORDER BY installed_rank;
+  ```
 
 ---
 
 ## Security
 
-* Authentication uses stateless JWT tokens (`Authorization: Bearer <token>`). Obtain a token via `POST /api/auth/login` or the `/login` form.
-* The bootstrap administrator (`admin@sip.local` / `Admin123!`) is provisioned by Flyway; update this password immediately outside local development.
-* The signing secret comes from `JWT_SECRET` (see `.env.example`). Provide it through a secret store (Vault, GitLab protected variables, Kubernetes secrets, etc.) and rotate it whenever you want to invalidate existing tokens.
-* In GitLab CI, declare `JWT_SECRET` as a protected/masked variable so pipelines can sign tokens without exposing the key.
-* `POST /api/auth/change-password` lets an authenticated user change their own password; the client logs out afterwards to require a fresh login.
-* Access rules:
-  * Every `/api/users/**` endpoint requires a valid JWT.
-  * `POST/PUT/DELETE /api/users/**` remain restricted to users with the `ADMIN` role.
-
-## Health Endpoints
-
-* `GET /api/health` – application + database ping (dev convenience endpoint)
+- Authentication uses HttpOnly JWT cookies issued by `/api/auth/login` and cleared via `/api/auth/logout`.
+- The Angular guard waits for session hydration before routing into protected areas.
+- Role-based permissions: `ADMIN`, `DISPATCHER`, `TECH` (e.g. technicians only access their own interventions).
+- Store sensitive variables (`JWT_SECRET`, database credentials) in a secret manager or protected CI variables.
 
 ---
 
-## CI/CD (GitLab)
+## Testing & Quality
 
-A GitLab pipeline is planned for future milestones (build, test, containerize, deploy). Compose production files are provided as a starting point.
-
----
-
-## Contributing
-
-* Use feature branches and merge requests.
-* Keep commits small and meaningful; include tests where applicable.
-* Follow code style conventions of Spring/Angular ecosystems.
+- Backend: `./mvnw test`.
+- Frontend: unit tests and linting are being introduced; refer to `AI_DEV_LOG.md` for the current status.
+- Before shipping, run the relevant test suites and exercise the Dockerized stack with `make prod-up`.
 
 ---
 
