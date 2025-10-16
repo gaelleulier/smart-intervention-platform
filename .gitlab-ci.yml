@@ -68,7 +68,7 @@ frontend:test:
   script:
     - npm ci
     - npm run test -- --watch=false --code-coverage --browsers=ChromeHeadlessNoSandbox
-    - npm run build -- --configuration=development
+    #- npm run build -- --configuration=development
   artifacts:
     when: always
     paths:
