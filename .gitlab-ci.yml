@@ -192,33 +192,24 @@ deploy:prod:
     BACKEND_REGISTRY_TAG: "$CI_REGISTRY_IMAGE/backend:main"
     FRONTEND_REGISTRY_TAG: "$CI_REGISTRY_IMAGE/frontend:main"
   before_script:
-    - apk add --no-cache openssh-client rsync bash file
-    - |
-      if [ -z "$DEPLOY_SSH_PRIVATE_KEY" ] || [ -z "$DEPLOY_HOST" ] || [ -z "$DEPLOY_USER" ] || [ -z "$DEPLOY_PATH" ]; then
-        echo "Missing deployment variables DEPLOY_SSH_PRIVATE_KEY/DEPLOY_HOST/DEPLOY_USER/DEPLOY_PATH" >&2
-        exit 1
-      fi
+    - apk add --no-cache openssh-client rsync bash
     - eval "$(ssh-agent -s)"
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
-
-    - install -m 600 /dev/null ~/.ssh/id_deploy
-    - tr -d '\r' < "$DEPLOY_SSH_PRIVATE_KEY" > ~/.ssh/id_deploy
+    
+    - echo "$DEPLOY_SSH_PRIVATE_KEY_B64" | base64 -d > ~/.ssh/id_deploy
+    - tr -d '\r' < ~/.ssh/id_deploy > ~/.ssh/id_deploy.clean && mv ~/.ssh/id_deploy.clean ~/.ssh/id_deploy
     - chmod 600 ~/.ssh/id_deploy
-
-    - file ~/.ssh/id_deploy
+    
     - wc -c ~/.ssh/id_deploy
-    - ssh -V
-
     - ssh-add ~/.ssh/id_deploy
-
+    
     - |
       if [ -n "$DEPLOY_KNOWN_HOSTS" ]; then
-        printf '%s\n' "$DEPLOY_KNOWN_HOSTS" >> ~/.ssh/known_hosts
+        printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
       else
-        ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+        ssh-keyscan -p "${DEPLOY_PORT:-22}" -H "$DEPLOY_HOST" > ~/.ssh/known_hosts
       fi
       chmod 644 ~/.ssh/known_hosts
-
     - ssh-add -l
     - ssh -p "${DEPLOY_PORT:-22}" -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" 'echo OK'
 
