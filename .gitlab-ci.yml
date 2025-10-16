@@ -39,6 +39,7 @@ backend:test:
     reports:
       junit: backend/target/surefire-reports/*.xml
   rules:
+    - changes: [ "backend/**", ".gitlab-ci.yml" ]
     - exists:
         - backend/pom.xml
 
@@ -71,6 +72,8 @@ frontend:test:
       - frontend/coverage/
     expire_in: 1 week
   rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - changes: [ "frontend/**", ".gitlab-ci.yml" ]
     - exists:
         - frontend/package.json
         - frontend/angular.json
@@ -98,6 +101,8 @@ backend:build:
       - backend/target/*.jar
     expire_in: 1 week
   rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      changes: [ "backend/**", "pom.xml", ".gitlab-ci.yml" ]
     - exists:
         - backend/pom.xml
 
@@ -124,6 +129,8 @@ frontend:build:
       - frontend/dist/
     expire_in: 1 week
   rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      changes: [ "frontend/**", "package*.json", "angular.json", ".gitlab-ci.yml" ]
     - exists:
         - frontend/package.json
         - frontend/angular.json
@@ -166,6 +173,12 @@ docker:publish:
         -f frontend/Dockerfile frontend
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
+      changes:
+        - "backend/**"
+        - "frontend/**"
+        - "backend/Dockerfile"
+        - "frontend/Dockerfile"
+        - ".gitlab-ci.yml"
 
 # =====================
 # Deploy — production (main only)
@@ -187,14 +200,26 @@ deploy:prod:
       fi
     - eval "$(ssh-agent -s)"
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
-    - install -m 600 "$DEPLOY_SSH_PRIVATE_KEY" ~/.ssh/id_deploy
+
+    - install -m 600 /dev/null ~/.ssh/id_deploy
+    - tr -d '\r' < "$DEPLOY_SSH_PRIVATE_KEY" > ~/.ssh/id_deploy
+    - chmod 600 ~/.ssh/id_deploy
+
+    - file ~/.ssh/id_deploy
+    - wc -c ~/.ssh/id_deploy
+    - ssh -V
+
     - ssh-add ~/.ssh/id_deploy
+
     - |
       if [ -n "$DEPLOY_KNOWN_HOSTS" ]; then
         printf '%s\n' "$DEPLOY_KNOWN_HOSTS" >> ~/.ssh/known_hosts
       else
         ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
       fi
+      chmod 644 ~/.ssh/known_hosts
+
+    - ssh-add -l
   script:
     - DEPLOY_BACKEND_IMAGE=${DEPLOY_BACKEND_IMAGE:-$BACKEND_REGISTRY_TAG}
     - DEPLOY_FRONTEND_IMAGE=${DEPLOY_FRONTEND_IMAGE:-$FRONTEND_REGISTRY_TAG}
@@ -224,3 +249,9 @@ workflow:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH
+    - if: $CI_COMMIT_MESSAGE =~ /(\[skip ci\]|docs:|chore:)/i
+      when: never
+    - when: always
+
+default:
+  interruptible: true
