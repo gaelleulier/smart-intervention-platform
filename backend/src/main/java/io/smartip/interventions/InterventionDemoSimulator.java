@@ -10,8 +10,10 @@ import io.smartip.domain.UserRole;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
+import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -102,8 +104,8 @@ public class InterventionDemoSimulator {
             UserRepository userRepository,
             JdbcTemplate jdbcTemplate,
             ObjectProvider<Clock> clockProvider,
-            @Value("${DEMO_MAX_ROWS:3000}") int maxRows,
-            @Value("${DEMO_BATCH_DELETE:200}") int batchSize) {
+            @Value("${DEMO_MAX_ROWS:500}") int maxRows,
+            @Value("${DEMO_BATCH_DELETE:10}") int batchSize) {
         this(
                 interventionRepository,
                 userRepository,
@@ -136,8 +138,8 @@ public class InterventionDemoSimulator {
     public void runSimulation() {
         ensureCreatedAtIndex();
 
-        int desiredInsertions = random.nextInt(3) + 1;
         Instant runTimestamp = Instant.now(clock);
+        int desiredInsertions = randomInsertionCount(runTimestamp);
         /* LOGGER.debug(
                 "Demo simulator run triggered at {} (maxRows={}, batchSize={})",
                 runTimestamp,
@@ -251,6 +253,45 @@ public class InterventionDemoSimulator {
 
     private String pickRandom(String[] candidates) {
         return candidates[random.nextInt(candidates.length)];
+    }
+
+    private int randomInsertionCount(Instant runTimestamp) {
+        ZonedDateTime localTimestamp = runTimestamp.atZone(clock.getZone());
+        double[] thresholds = resolveTrafficProfile(localTimestamp);
+        double draw = random.nextDouble();
+        if (draw < thresholds[0]) {
+            return 0;
+        }
+        if (draw < thresholds[1]) {
+            return 1;
+        }
+        if (draw < thresholds[2]) {
+            return 2;
+        }
+        return 3;
+    }
+
+    private double[] resolveTrafficProfile(ZonedDateTime localTimestamp) {
+        DayOfWeek day = localTimestamp.getDayOfWeek();
+        int hour = localTimestamp.getHour();
+        boolean weekend = day == DayOfWeek.SATURDAY || day == DayOfWeek.SUNDAY;
+
+        if (weekend) {
+            if (hour >= 10 && hour < 16) {
+                return new double[] {0.5, 0.8, 0.95, 1.0};
+            }
+            return new double[] {0.75, 0.93, 0.995, 1.0};
+        }
+
+        if (hour >= 9 && hour < 17) {
+            return new double[] {0.2, 0.55, 0.85, 1.0};
+        }
+
+        if ((hour >= 7 && hour < 9) || (hour >= 17 && hour < 20)) {
+            return new double[] {0.35, 0.7, 0.9, 1.0};
+        }
+
+        return new double[] {0.6, 0.88, 0.98, 1.0};
     }
 
     private Instant randomInstant(Instant startInclusive, Instant endInclusive) {

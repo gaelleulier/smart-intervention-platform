@@ -67,22 +67,22 @@ class InterventionDemoSimulatorTest {
 
     @Test
     void runSimulationGeneratesSyntheticDataAndPurges() {
-        when(jdbcTemplate.update(InterventionDemoSimulator.PURGE_STALE_INTERVENTIONS_SQL, 10000, 500))
-                .thenReturn(500, 500, 0);
+        when(jdbcTemplate.update(InterventionDemoSimulator.PURGE_STALE_INTERVENTIONS_SQL, 500, 10))
+                .thenReturn(10, 10, 0);
 
         InterventionDemoSimulator simulator = new InterventionDemoSimulator(
-                interventionRepository, userRepository, jdbcTemplate, FIXED_CLOCK, new Random(42), 10000, 500);
+                interventionRepository, userRepository, jdbcTemplate, FIXED_CLOCK, new Random(42), 500, 10);
 
         simulator.runSimulation();
 
         verify(jdbcTemplate, times(1)).execute(InterventionDemoSimulator.CREATE_INDEX_SQL);
         verify(jdbcTemplate, times(3))
-                .update(InterventionDemoSimulator.PURGE_STALE_INTERVENTIONS_SQL, 10000, 500);
+                .update(InterventionDemoSimulator.PURGE_STALE_INTERVENTIONS_SQL, 500, 10);
 
         verify(interventionRepository).saveAll(interventionsCaptor.capture());
         List<InterventionEntity> generated = interventionsCaptor.getValue();
 
-        assertThat(generated).hasSizeBetween(1, 3);
+        assertThat(generated).hasSizeBetween(0, 3);
 
         Instant now = FIXED_CLOCK.instant();
         Instant lowerBound = now.minus(Duration.ofMinutes(30));
@@ -148,11 +148,11 @@ class InterventionDemoSimulatorTest {
 
     @Test
     void indexCreationExecutedOnlyOnce() {
-        when(jdbcTemplate.update(InterventionDemoSimulator.PURGE_STALE_INTERVENTIONS_SQL, 10000, 500))
+        when(jdbcTemplate.update(InterventionDemoSimulator.PURGE_STALE_INTERVENTIONS_SQL, 500, 10))
                 .thenReturn(0);
 
         InterventionDemoSimulator simulator = new InterventionDemoSimulator(
-                interventionRepository, userRepository, jdbcTemplate, FIXED_CLOCK, new Random(7), 10000, 500);
+                interventionRepository, userRepository, jdbcTemplate, FIXED_CLOCK, new Random(7), 500, 10);
 
         simulator.runSimulation();
         simulator.runSimulation();
