@@ -139,6 +139,7 @@ frontend:build:
 # Docker images — build & push (main only)
 # =====================
 docker:publish:
+  tags: ["hetzner"]
   stage: build
   image: docker:27.3.1
   services:
@@ -184,6 +185,7 @@ docker:publish:
 # Deploy — production (main only)
 # =====================
 deploy:prod:
+  tags: ["hetzner"]
   stage: deploy
   image: alpine:3.20
   needs:
@@ -207,9 +209,10 @@ deploy:prod:
       if [ -n "$DEPLOY_KNOWN_HOSTS" ]; then
         printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
       else
-        ssh-keyscan -p "${DEPLOY_PORT:-22}" -H "$DEPLOY_HOST" > ~/.ssh/known_hosts
+        ssh-keyscan -p "${DEPLOY_PORT:-22}" -t ed25519,rsa -H "$DEPLOY_HOST" > ~/.ssh/known_hosts
       fi
       chmod 644 ~/.ssh/known_hosts
+
     - ssh-add -l
     - ssh -p "${DEPLOY_PORT:-22}" -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" 'echo OK'
 
