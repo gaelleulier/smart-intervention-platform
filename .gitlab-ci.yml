@@ -192,7 +192,7 @@ deploy:prod:
     BACKEND_REGISTRY_TAG: "$CI_REGISTRY_IMAGE/backend:main"
     FRONTEND_REGISTRY_TAG: "$CI_REGISTRY_IMAGE/frontend:main"
   before_script:
-    - apk add --no-cache openssh-client rsync bash
+    - apk add --no-cache openssh-client rsync bash file
     - |
       if [ -z "$DEPLOY_SSH_PRIVATE_KEY" ] || [ -z "$DEPLOY_HOST" ] || [ -z "$DEPLOY_USER" ] || [ -z "$DEPLOY_PATH" ]; then
         echo "Missing deployment variables DEPLOY_SSH_PRIVATE_KEY/DEPLOY_HOST/DEPLOY_USER/DEPLOY_PATH" >&2
@@ -220,6 +220,8 @@ deploy:prod:
       chmod 644 ~/.ssh/known_hosts
 
     - ssh-add -l
+    - ssh -p "${DEPLOY_PORT:-22}" -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" 'echo OK'
+
   script:
     - DEPLOY_BACKEND_IMAGE=${DEPLOY_BACKEND_IMAGE:-$BACKEND_REGISTRY_TAG}
     - DEPLOY_FRONTEND_IMAGE=${DEPLOY_FRONTEND_IMAGE:-$FRONTEND_REGISTRY_TAG}
