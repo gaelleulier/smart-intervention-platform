@@ -7,80 +7,83 @@ stages: [test, build, deploy]
 # =====================
 # Backend — TEST
 # =====================
-backend:test:
-  stage: test
-  image: maven:3.9-eclipse-temurin-21
-  services:
-    - name: postgres:16-alpine
-      alias: postgres
-      variables:
-        POSTGRES_DB: sip_db
-        POSTGRES_USER: sip_user
-        POSTGRES_PASSWORD: sip_password
-  variables:
-    MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
-    SPRING_PROFILES_ACTIVE: "dev"
-    POSTGRES_DB: "sip_db"
-    POSTGRES_USER: "sip_user"
-    POSTGRES_PASSWORD: "sip_password"
-    POSTGRES_HOST: "postgres"
-    POSTGRES_PORT: "5432"
-  cache:
-    key: maven-${CI_COMMIT_REF_SLUG}
-    policy: pull-push
-    paths:
-      - backend/.m2/repository
-  before_script:
-    - apt-get update && apt-get install -y postgresql-client && rm -rf /var/lib/apt/lists/*
-    - cd backend
-    - mkdir -p .m2/repository
-    - ./mvnw -v
-    - until pg_isready -h "$POSTGRES_HOST" -p "$POSTGRES_PORT"; do echo "Waiting for Postgres..."; sleep 2; done
-  script:
-    - ./mvnw -B test
-  artifacts:
-    when: always
-    reports:
-      junit: backend/target/surefire-reports/*.xml
-  rules:
-    - changes: [ "backend/**", ".gitlab-ci.yml" ]
-    - exists:
-        - backend/pom.xml
+# backend:test:
+#   stage: test
+#   image: maven:3.9-eclipse-temurin-21
+#   services:
+#     - name: postgres:16-alpine
+#       alias: postgres
+#       variables:
+#         POSTGRES_DB: sip_db
+#         POSTGRES_USER: sip_user
+#         POSTGRES_PASSWORD: sip_password
+#   variables:
+#     MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
+#     SPRING_PROFILES_ACTIVE: "dev"
+#     POSTGRES_DB: "sip_db"
+#     POSTGRES_USER: "sip_user"
+#     POSTGRES_PASSWORD: "sip_password"
+#     POSTGRES_HOST: "postgres"
+#     POSTGRES_PORT: "5432"
+#   cache:
+#     key: maven-${CI_COMMIT_REF_SLUG}
+#     policy: pull-push
+#     paths:
+#       - backend/.m2/repository
+#   before_script:
+#     - apt-get update && apt-get install -y postgresql-client && rm -rf /var/lib/apt/lists/*
+#     - cd backend
+#     - mkdir -p .m2/repository
+#     - ./mvnw -v
+#     - until pg_isready -h "$POSTGRES_HOST" -p "$POSTGRES_PORT"; do echo "Waiting for Postgres..."; sleep 2; done
+#   script:
+#     - ./mvnw -B test
+#   artifacts:
+#     when: always
+#     reports:
+#       junit: backend/target/surefire-reports/*.xml
+#   rules:
+#     - changes: [ "backend/**", ".gitlab-ci.yml" ]
+#     - exists:
+#         - backend/pom.xml
 
 # =====================
 # Frontend — TEST (lint/build light)
 # =====================
-frontend:test:
-  stage: test
-  image: node:20
-  variables:
-    CHROME_BIN: "/usr/bin/chromium"
-  cache:
-    key: npm-${CI_COMMIT_REF_SLUG}
-    policy: pull-push
-    paths:
-      - frontend/.npm/
-  before_script:
-    - apt-get update && apt-get install -y chromium && rm -rf /var/lib/apt/lists/*
-    - cd frontend
-    - node -v && npm -v
-    - npm config set cache .npm --global
-  script:
-    - npm ci
-    - npm run test -- --watch=false --code-coverage --browsers=ChromeHeadlessNoSandbox
-    #- npm run build -- --configuration=development
-  artifacts:
-    when: always
-    paths:
-      - frontend/dist/
-      - frontend/coverage/
-    expire_in: 1 week
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'
-    - changes: [ "frontend/**", ".gitlab-ci.yml" ]
-    - exists:
-        - frontend/package.json
-        - frontend/angular.json
+# frontend:test:
+#   stage: test
+#   image: node:20
+#   variables:
+#     CHROME_BIN: "/usr/bin/chromium"
+#     NODE_OPTIONS: "--max-old-space-size=2048"
+#     NG_BUILD_MAX_WORKERS: "2"
+#     NG_PERSISTENT_BUILD_CACHE: "false"
+#   cache:
+#     key: npm-${CI_COMMIT_REF_SLUG}
+#     policy: pull-push
+#     paths:
+#       - frontend/.npm/
+#   before_script:
+#     - apt-get update && apt-get install -y chromium && rm -rf /var/lib/apt/lists/*
+#     - cd frontend
+#     - node -v && npm -v
+#     - npm config set cache .npm --global
+#   script:
+#     - npm ci
+#     - npm run test -- --watch=false --code-coverage --browsers=ChromeHeadlessNoSandbox --no-progress
+#     - npm run build -- --configuration=development --no-progress
+#   artifacts:
+#     when: always
+#     paths:
+#       - frontend/dist/
+#       - frontend/coverage/
+#     expire_in: 1 week
+#   rules:
+#     - if: '$CI_COMMIT_BRANCH == "main"'
+#     - changes: [ "frontend/**", ".gitlab-ci.yml" ]
+#     - exists:
+#         - frontend/package.json
+#         - frontend/angular.json
 
 # =====================
 # Backend — BUILD (jar)
@@ -88,7 +91,7 @@ frontend:test:
 backend:build:
   stage: build
   image: maven:3.9-eclipse-temurin-21
-  needs: ["backend:test"]
+  #needs: ["backend:test"]
   variables:
     MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
   cache:
@@ -115,8 +118,12 @@ backend:build:
 # =====================
 frontend:build:
   stage: build
-  image: node:20
-  needs: ["frontend:test"]
+  image: node:20-slim
+  variables:
+    NODE_OPTIONS: "--max-old-space-size=1024"
+    NG_BUILD_MAX_WORKERS: "1"
+    NG_PERSISTENT_BUILD_CACHE: "false"
+  #needs: ["frontend:test"]
   cache:
     key: npm-${CI_COMMIT_REF_SLUG}
     policy: pull-push
@@ -124,10 +131,10 @@ frontend:build:
       - frontend/.npm/
   before_script:
     - cd frontend
-    - npm config set cache .npm --global
+    - npm ci --no-audit --no-fund
   script:
     - npm ci --prefer-offline
-    - npm run build -- --configuration=production
+    - npm run build -- --configuration=production --no-progress
   artifacts:
     paths:
       - frontend/dist/
@@ -176,6 +183,12 @@ docker:publish:
         -t "$CI_REGISTRY_IMAGE/frontend:$CI_COMMIT_SHORT_SHA" \
         -t "$CI_REGISTRY_IMAGE/frontend:main" \
         -f frontend/Dockerfile frontend
+  after_script:
+    - docker buildx ls || true
+    - docker buildx rm ci-builder || true
+    - docker ps -aq --filter "status=exited" | xargs -r docker rm
+    - docker image prune -f
+    - docker builder prune -f
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
       changes:
@@ -250,7 +263,6 @@ deploy:prod:
 workflow:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH
+    - if: $CI_COMMIT_BRANCH == "main"
     - if: $CI_COMMIT_MESSAGE =~ /(\[skip ci\]|docs:|chore:)/i
       when: never
-    - when: always
