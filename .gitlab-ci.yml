@@ -52,7 +52,7 @@ backend:test:
 # =====================
 frontend:test:
   stage: test
-  image: node:22
+  image: node:20
   variables:
     CHROME_BIN: "/usr/bin/chromium"
   cache:
@@ -115,7 +115,7 @@ backend:build:
 # =====================
 frontend:build:
   stage: build
-  image: node:22
+  image: node:20
   needs: ["frontend:test"]
   cache:
     key: npm-${CI_COMMIT_REF_SLUG}
