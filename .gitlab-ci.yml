@@ -55,6 +55,9 @@ frontend:test:
   image: node:20
   variables:
     CHROME_BIN: "/usr/bin/chromium"
+    NODE_OPTIONS: "--max-old-space-size=2048"
+    NG_BUILD_MAX_WORKERS: "2"
+    NG_PERSISTENT_BUILD_CACHE: "false"
   cache:
     key: npm-${CI_COMMIT_REF_SLUG}
     policy: pull-push
@@ -67,8 +70,8 @@ frontend:test:
     - npm config set cache .npm --global
   script:
     - npm ci
-    - npm run test -- --watch=false --code-coverage --browsers=ChromeHeadlessNoSandbox
-    - npm run build -- --configuration=development
+    - npm run test -- --watch=false --code-coverage --browsers=ChromeHeadlessNoSandbox --no-progress
+    - npm run build -- --configuration=development --no-progress
   artifacts:
     when: always
     paths:
@@ -127,7 +130,7 @@ frontend:build:
     - npm config set cache .npm --global
   script:
     - npm ci --prefer-offline
-    - npm run build -- --configuration=production
+    - npm run build -- --configuration=production --no-progress
   artifacts:
     paths:
       - frontend/dist/
@@ -176,6 +179,12 @@ docker:publish:
         -t "$CI_REGISTRY_IMAGE/frontend:$CI_COMMIT_SHORT_SHA" \
         -t "$CI_REGISTRY_IMAGE/frontend:main" \
         -f frontend/Dockerfile frontend
+  after_script:
+    - docker buildx ls || true
+    - docker buildx rm ci-builder || true
+    - docker ps -aq --filter "status=exited" | xargs -r docker rm
+    - docker image prune -f
+    - docker builder prune -f
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
       changes:
@@ -250,7 +259,7 @@ deploy:prod:
 workflow:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH
+    - if: $CI_COMMIT_BRANCH == "main"
     - if: $CI_COMMIT_MESSAGE =~ /(\[skip ci\]|docs:|chore:)/i
       when: never
     - when: always
