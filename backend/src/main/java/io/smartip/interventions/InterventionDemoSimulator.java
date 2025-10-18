@@ -104,7 +104,7 @@ public class InterventionDemoSimulator {
             UserRepository userRepository,
             JdbcTemplate jdbcTemplate,
             ObjectProvider<Clock> clockProvider,
-            @Value("${DEMO_MAX_ROWS:500}") int maxRows,
+            @Value("${DEMO_MAX_ROWS:100}") int maxRows,
             @Value("${DEMO_BATCH_DELETE:10}") int batchSize) {
         this(
                 interventionRepository,

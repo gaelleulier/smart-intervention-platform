@@ -67,17 +67,17 @@ class InterventionDemoSimulatorTest {
 
     @Test
     void runSimulationGeneratesSyntheticDataAndPurges() {
-        when(jdbcTemplate.update(InterventionDemoSimulator.PURGE_STALE_INTERVENTIONS_SQL, 500, 10))
+        when(jdbcTemplate.update(InterventionDemoSimulator.PURGE_STALE_INTERVENTIONS_SQL, 100, 10))
                 .thenReturn(10, 10, 0);
 
         InterventionDemoSimulator simulator = new InterventionDemoSimulator(
-                interventionRepository, userRepository, jdbcTemplate, FIXED_CLOCK, new Random(42), 500, 10);
+                interventionRepository, userRepository, jdbcTemplate, FIXED_CLOCK, new Random(42), 100, 10);
 
         simulator.runSimulation();
 
         verify(jdbcTemplate, times(1)).execute(InterventionDemoSimulator.CREATE_INDEX_SQL);
         verify(jdbcTemplate, times(3))
-                .update(InterventionDemoSimulator.PURGE_STALE_INTERVENTIONS_SQL, 500, 10);
+                .update(InterventionDemoSimulator.PURGE_STALE_INTERVENTIONS_SQL, 100, 10);
 
         verify(interventionRepository).saveAll(interventionsCaptor.capture());
         List<InterventionEntity> generated = interventionsCaptor.getValue();
@@ -148,11 +148,11 @@ class InterventionDemoSimulatorTest {
 
     @Test
     void indexCreationExecutedOnlyOnce() {
-        when(jdbcTemplate.update(InterventionDemoSimulator.PURGE_STALE_INTERVENTIONS_SQL, 500, 10))
+        when(jdbcTemplate.update(InterventionDemoSimulator.PURGE_STALE_INTERVENTIONS_SQL, 100, 10))
                 .thenReturn(0);
 
         InterventionDemoSimulator simulator = new InterventionDemoSimulator(
-                interventionRepository, userRepository, jdbcTemplate, FIXED_CLOCK, new Random(7), 500, 10);
+                interventionRepository, userRepository, jdbcTemplate, FIXED_CLOCK, new Random(7), 100, 10);
 
         simulator.runSimulation();
         simulator.runSimulation();

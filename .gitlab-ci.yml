@@ -133,7 +133,6 @@ frontend:build:
     - cd frontend
     - npm ci --no-audit --no-fund
   script:
-    - npm ci --prefer-offline
     - npm run build -- --configuration=production --no-progress
   artifacts:
     paths:
@@ -162,8 +161,10 @@ docker:publish:
     DOCKER_HOST: tcp://docker:2375
     DOCKER_TLS_CERTDIR: ""
   needs:
-    - backend:build
-    - frontend:build
+    - job: backend:build
+      artifacts: true
+    - job: frontend:build
+      artifacts: true
   before_script:
     - docker version
     - echo "$CI_JOB_TOKEN" | docker login -u gitlab-ci-token --password-stdin "$CI_REGISTRY"
@@ -175,14 +176,14 @@ docker:publish:
         --push \
         -t "$CI_REGISTRY_IMAGE/backend:$CI_COMMIT_SHORT_SHA" \
         -t "$CI_REGISTRY_IMAGE/backend:main" \
-        -f backend/Dockerfile backend
+        -f backend/Dockerfile.runtime backend
     - |
       docker buildx build \
         --platform linux/amd64 \
         --push \
         -t "$CI_REGISTRY_IMAGE/frontend:$CI_COMMIT_SHORT_SHA" \
         -t "$CI_REGISTRY_IMAGE/frontend:main" \
-        -f frontend/Dockerfile frontend
+        -f frontend/Dockerfile.runtime frontend
   after_script:
     - docker buildx ls || true
     - docker buildx rm ci-builder || true
@@ -194,8 +195,10 @@ docker:publish:
       changes:
         - "backend/**"
         - "frontend/**"
-        - "backend/Dockerfile"
-        - "frontend/Dockerfile"
+        # - "backend/Dockerfile"
+        # - "frontend/Dockerfile"
+        - "backend/Dockerfile.runtime"
+        - "frontend/Dockerfile.runtime"
         - ".gitlab-ci.yml"
 
 # =====================
