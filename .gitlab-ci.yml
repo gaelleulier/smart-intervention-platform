@@ -169,6 +169,8 @@ docker:publish:
     - docker version
     - echo "$CI_JOB_TOKEN" | docker login -u gitlab-ci-token --password-stdin "$CI_REGISTRY"
     - docker buildx create --name ci-builder --driver docker-container --use || docker buildx use ci-builder
+    - ls -lah backend/target || (echo "JAR manquant (backend/target)"; exit 1)
+    - ls -lah frontend/dist/frontend/browser || (echo "dist/frontend/browser manquant"; exit 1)
   script:
     - |
       docker buildx build \
