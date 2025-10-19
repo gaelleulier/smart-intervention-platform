@@ -72,9 +72,7 @@
               "outputMode": "browser",
               "optimization": false,
               "sourceMap": false,
-              "namedChunks": false,
               "extractLicenses": true,
-              "cache": false,
               "budgets": []
             }
           },
