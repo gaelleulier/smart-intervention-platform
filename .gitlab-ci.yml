@@ -133,7 +133,23 @@ frontend:build:
     - cd frontend
     - npm ci --no-audit --no-fund
   script:
-    - npm run build -- --configuration=production --no-progress
+    - |
+      timeout 20m bash -lc '
+        set -e
+        echo "🔧 Angular version info:"
+        npx ng version
+
+        echo "🚀 Starting Angular build (ci mode)..."
+        npx ng build --configuration=ci --no-progress --verbose
+      ' || {
+        echo "⛔ Build front timeout/échec. Diagnostics:";
+        ps -eo pid,ppid,cmd,%cpu,%mem --sort=-%cpu | head -n 25 || true
+        free -h || true
+        df -h || true
+        dmesg | tail -n 100 || true
+        exit 1
+      }
+
   artifacts:
     paths:
       - frontend/dist/
