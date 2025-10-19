@@ -67,16 +67,6 @@
               "optimization": false,
               "extractLicenses": false,
               "sourceMap": true
-            },
-            "ci": {
-              "outputMode": "browser",
-              "optimization": false,
-              "sourceMap": false,
-              "namedChunks": false,
-              "extractLicenses": true,
-              "inlineCritical": false,
-              "cache": false,
-              "budgets": []
             }
           },
           "defaultConfiguration": "production"
