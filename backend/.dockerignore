@@ -5,3 +5,8 @@ target
 .vscode
 *.iml
 *.log
+**
+!target/
+!target/*.jar
+!.dockerignore
+!Dockerfile.runtime
