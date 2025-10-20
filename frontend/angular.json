@@ -69,7 +69,7 @@
               "sourceMap": true
             },
             "ci": {
-              "outputMode": "browser",
+              "outputMode": "static",
               "optimization": false,
               "sourceMap": false,
               "extractLicenses": true,
