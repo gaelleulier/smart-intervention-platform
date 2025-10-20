@@ -143,3 +143,44 @@
   flex: 1 1 140px;
   padding: 0.6rem 1rem;
 }
+
+@media (max-width: 640px) {
+  .login {
+    margin: 2rem 1.25rem;
+    padding: 2rem 1.6rem;
+  }
+
+  .login__actions {
+    justify-content: center;
+  }
+
+  .login__demo-buttons {
+    gap: 0.6rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .login {
+    margin: 1.5rem 0.75rem;
+    padding: 1.75rem 1.25rem;
+  }
+
+  .login__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .login__actions .button {
+    width: 100%;
+  }
+
+  .login__demo-buttons {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .login__demo-buttons .button {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+}

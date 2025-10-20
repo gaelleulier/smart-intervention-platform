@@ -10,7 +10,9 @@
       <span>Mot de passe</span>
       <input type="password" formControlName="password" placeholder="Mot de passe" autocomplete="current-password" />
     </label>
-    <div *ngIf="error() as err" class="alert alert--error">{{ err }}</div>
+    @if (error(); as err) {
+      <div class="alert alert--error">{{ err }}</div>
+    }
     <section class="login__demo" aria-labelledby="demo-login-heading">
       <h2 id="demo-login-heading">Comptes de démonstration</h2>
       <p class="login__demo-subtitle">Connectez-vous instantanément avec un rôle préconfiguré.</p>

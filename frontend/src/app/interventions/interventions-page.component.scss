@@ -199,6 +199,153 @@
   font-size: 0.9rem;
 }
 
+@media (max-width: 1024px) {
+  .interventions__header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .header__actions {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 900px) {
+  .filters__form {
+    grid-template-columns: 1fr;
+  }
+
+  .filters__actions {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 768px) {
+  .card {
+    padding: 1.25rem;
+  }
+
+  .create__header,
+  .edit__header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .create__actions,
+  .edit__actions,
+  .header__actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .field-group {
+    grid-template-columns: 1fr;
+  }
+
+  .map-picker__canvas {
+    height: 180px;
+  }
+
+  .list table {
+    display: block;
+  }
+
+  .list thead {
+    display: none;
+  }
+
+  .list tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .list tbody tr {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 0.75rem;
+    box-shadow: 0 12px 26px rgba(15, 23, 42, 0.08);
+    background: #fff;
+  }
+
+  .list td {
+    border: none;
+    padding: 0;
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    font-size: 0.9rem;
+  }
+
+  .list td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #4b5563;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.75rem;
+  }
+
+  .list td.col-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+    width: 100%;
+    white-space: normal;
+  }
+
+  .list td.col-actions::before {
+    margin-bottom: 0.35rem;
+  }
+
+  .list td.col-actions .button {
+    width: 100%;
+  }
+
+  .pagination {
+    flex-direction: column;
+    gap: 0.75rem;
+    text-align: center;
+  }
+
+  .pagination .button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .button {
+    width: 100%;
+  }
+
+  .filters__actions .button,
+  .edit__actions .button,
+  .create__actions .button,
+  .header__actions .button {
+    flex: 1 1 auto;
+  }
+
+  .list td {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+  }
+
+  .list td::before {
+    font-size: 0.7rem;
+  }
+
+  .map-picker__canvas {
+    height: 160px;
+  }
+}
+
 .alert--error {
   background: rgba(239, 68, 68, 0.12);
   color: #b91c1c;

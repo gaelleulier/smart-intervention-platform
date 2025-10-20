@@ -5,7 +5,9 @@
       <p>Gérez les comptes de la plateforme d’interventions.</p>
     </div>
     <div class="header__actions">
-      <span class="badge" *ngIf="activeRole() as role">{{ role }}</span>
+      @if (activeRole(); as role) {
+        <span class="badge">{{ role }}</span>
+      }
       <button type="button" class="button button--ghost" (click)="onRefresh()" [disabled]="loading()">
         Actualiser
       </button>
@@ -23,7 +25,9 @@
         <span>Rôle</span>
         <select formControlName="role">
           <option [ngValue]="''">Tous</option>
-          <option *ngFor="let role of roles" [ngValue]="role">{{ role }}</option>
+          @for (role of roles; track role) {
+            <option [ngValue]="role">{{ role }}</option>
+          }
         </select>
       </label>
       <label class="field">
@@ -43,80 +47,93 @@
     </form>
   </section>
 
-  <section class="card edit" *ngIf="editingUser() as user">
-    <div class="edit__header">
-      <h3>Modifier l’utilisateur</h3>
-      <button type="button" class="button button--ghost" (click)="cancelEdit()" [disabled]="updating()">
-        Annuler
-      </button>
-    </div>
-    <ng-container *ngIf="isAdmin(); else editReadOnly">
-      <form class="edit__form" [formGroup]="editForm" (ngSubmit)="onUpdateUser()">
-        <label class="field">
-          <span>Email</span>
-          <input type="email" formControlName="email" />
-        </label>
-        <label class="field">
-          <span>Nom complet</span>
-          <input type="text" formControlName="fullName" />
-        </label>
-        <label class="field">
-          <span>Nouveau mot de passe (optionnel)</span>
-          <input type="password" formControlName="password" autocomplete="new-password" />
-        </label>
-        <label class="field">
-          <span>Rôle</span>
-          <select formControlName="role">
-            <option *ngFor="let role of roles" [ngValue]="role">{{ role }}</option>
-          </select>
-        </label>
-        <div class="edit__meta">
-          <span>Créé le {{ user.createdAt | date: 'medium' }}</span>
-        </div>
-        <div class="edit__actions" *ngIf="isAdmin()">
-          <button type="submit" class="button" [disabled]="updating()">Enregistrer</button>
-        </div>
-      </form>
-    </ng-container>
-    <ng-template #editReadOnly>
-      <p class="edit__readonly">
-        Les informations utilisateurs ne peuvent être modifiées que par un administrateur.
-      </p>
-    </ng-template>
+  @if (editingUser(); as user) {
+    <section class="card edit">
+      <div class="edit__header">
+        <h3>Modifier l’utilisateur</h3>
+        <button type="button" class="button button--ghost" (click)="cancelEdit()" [disabled]="updating()">
+          Annuler
+        </button>
+      </div>
+      @if (isAdmin()) {
+        <form class="edit__form" [formGroup]="editForm" (ngSubmit)="onUpdateUser()">
+          <label class="field">
+            <span>Email</span>
+            <input type="email" formControlName="email" />
+          </label>
+          <label class="field">
+            <span>Nom complet</span>
+            <input type="text" formControlName="fullName" />
+          </label>
+          <label class="field">
+            <span>Nouveau mot de passe (optionnel)</span>
+            <input type="password" formControlName="password" autocomplete="new-password" />
+          </label>
+          <label class="field">
+            <span>Rôle</span>
+            <select formControlName="role">
+              @for (role of roles; track role) {
+                <option [ngValue]="role">{{ role }}</option>
+              }
+            </select>
+          </label>
+          <div class="edit__meta">
+            <span>Créé le {{ user.createdAt | date: 'medium' }}</span>
+          </div>
+          <div class="edit__actions">
+            <button type="submit" class="button" [disabled]="updating()">Enregistrer</button>
+          </div>
+        </form>
+      } @else {
+        <p class="edit__readonly">
+          Les informations utilisateurs ne peuvent être modifiées que par un administrateur.
+        </p>
+      }
 
-    <section class="password" *ngIf="isSelf(user)">
-      <h4>Modifier votre mot de passe</h4>
-      <p class="password__hint">
-        Mettez à jour vos identifiants. Vous serez ensuite redirigé vers l’écran de connexion.
-      </p>
-      <form class="password__form" [formGroup]="changePasswordForm" (ngSubmit)="onChangePassword()">
-        <label class="field">
-          <span>Mot de passe actuel</span>
-          <input type="password" formControlName="currentPassword" autocomplete="current-password" />
-        </label>
-        <label class="field">
-          <span>Nouveau mot de passe</span>
-          <input type="password" formControlName="newPassword" autocomplete="new-password" />
-        </label>
-        <label class="field">
-          <span>Confirmez le mot de passe</span>
-          <input type="password" formControlName="confirmPassword" autocomplete="new-password" />
-        </label>
-        <div *ngIf="changePasswordError() as err" class="alert alert--error">{{ err }}</div>
-        <div *ngIf="changePasswordSuccess()" class="alert alert--success">
-          Mot de passe mis à jour. Merci de vous reconnecter.
-        </div>
-        <div class="password__actions">
-          <button type="submit" class="button" [disabled]="changingPassword()">Mettre à jour</button>
-        </div>
-      </form>
+      @if (isSelf(user)) {
+        <section class="password">
+          <h4>Modifier votre mot de passe</h4>
+          <p class="password__hint">
+            Mettez à jour vos identifiants. Vous serez ensuite redirigé vers l’écran de connexion.
+          </p>
+          <form class="password__form" [formGroup]="changePasswordForm" (ngSubmit)="onChangePassword()">
+            <label class="field">
+              <span>Mot de passe actuel</span>
+              <input type="password" formControlName="currentPassword" autocomplete="current-password" />
+            </label>
+            <label class="field">
+              <span>Nouveau mot de passe</span>
+              <input type="password" formControlName="newPassword" autocomplete="new-password" />
+            </label>
+            <label class="field">
+              <span>Confirmez le mot de passe</span>
+              <input type="password" formControlName="confirmPassword" autocomplete="new-password" />
+            </label>
+            @if (changePasswordError(); as err) {
+              <div class="alert alert--error">{{ err }}</div>
+            }
+            @if (changePasswordSuccess()) {
+              <div class="alert alert--success">
+                Mot de passe mis à jour. Merci de vous reconnecter.
+              </div>
+            }
+            <div class="password__actions">
+              <button type="submit" class="button" [disabled]="changingPassword()">Mettre à jour</button>
+            </div>
+          </form>
+        </section>
+      }
     </section>
-  </section>
+  }
 
   <section class="card list" [attr.aria-busy]="loading()">
-    <div *ngIf="error() as err" class="alert alert--error">{{ err }}</div>
+    @if (error(); as err) {
+      <div class="alert alert--error">{{ err }}</div>
+    }
 
-    <ng-container *ngIf="page() as pageData; else loadingOrEmpty">
+    @let pageData = page();
+
+    @if (pageData) {
       <table>
         <thead>
           <tr>
@@ -128,57 +145,62 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngIf="!pageData.content.length">
-            <td colspan="5" class="empty empty--inline">Aucun utilisateur ne correspond à vos filtres.</td>
-          </tr>
-          <tr *ngFor="let user of pageData.content; trackBy: trackByUserId">
-            <td>{{ user.email }}</td>
-            <td>{{ user.fullName }}</td>
-            <td><span class="pill" [attr.data-role]="user.role">{{ user.role }}</span></td>
-            <td>{{ user.createdAt | date: 'medium' }}</td>
-            <td class="col-actions">
-            <button
-              type="button"
-              class="button button--ghost"
-              (click)="startEdit(user)"
-              [disabled]="!isAdmin() || updating()"
-            >
-              Modifier
-            </button>
-              <button
-                type="button"
-                class="button button--danger"
-                (click)="onDeleteUser(user)"
-                *ngIf="canDeleteUser(user)"
-                [disabled]="deletingId() === user.id"
-              >
-                Supprimer
-              </button>
-            </td>
-          </tr>
+          @if (!pageData.content.length) {
+            <tr>
+              <td colspan="5" class="empty empty--inline">Aucun utilisateur ne correspond à vos filtres.</td>
+            </tr>
+          }
+          @for (user of pageData.content; track trackByUserId($index, user)) {
+            <tr>
+              <td [attr.data-label]="'Email'">{{ user.email }}</td>
+              <td [attr.data-label]="'Nom complet'">{{ user.fullName }}</td>
+              <td [attr.data-label]="'Rôle'"><span class="pill" [attr.data-role]="user.role">{{ user.role }}</span></td>
+              <td [attr.data-label]="'Créé le'">{{ user.createdAt | date: 'medium' }}</td>
+              <td class="col-actions" [attr.data-label]="'Actions'">
+                <button
+                  type="button"
+                  class="button button--ghost"
+                  (click)="startEdit(user)"
+                  [disabled]="!isAdmin() || updating()">
+                  Modifier
+                </button>
+                @if (canDeleteUser(user)) {
+                  <button
+                    type="button"
+                    class="button button--danger"
+                    (click)="onDeleteUser(user)"
+                    [disabled]="deletingId() === user.id">
+                    Supprimer
+                  </button>
+                }
+              </td>
+            </tr>
+          }
         </tbody>
       </table>
 
-      <div class="list__create" *ngIf="isAdmin()">
-        <button
-          type="button"
-          class="button button--circle"
-          (click)="showingCreate() ? cancelCreate() : startCreate()"
-          [attr.aria-label]="showingCreate() ? 'Annuler la création d’un utilisateur' : 'Créer un utilisateur'"
-          [disabled]="saving()"
-        >
-          {{ showingCreate() ? '×' : '+' }}
-        </button>
-        <span *ngIf="showingCreate()">Création d’un nouvel utilisateur…</span>
-      </div>
+      @if (isAdmin()) {
+        <div class="list__create">
+          <button
+            type="button"
+            class="button button--circle"
+            (click)="showingCreate() ? cancelCreate() : startCreate()"
+            [attr.aria-label]="showingCreate() ? 'Annuler la création d’un utilisateur' : 'Créer un utilisateur'"
+            [disabled]="saving()">
+            {{ showingCreate() ? '×' : '+' }}
+          </button>
+          @if (showingCreate()) {
+            <span>Création d’un nouvel utilisateur…</span>
+          }
+        </div>
+      }
 
       <footer class="pagination">
         <button
           type="button"
           class="button button--ghost"
           (click)="changePage(-1)"
-          [disabled]="pageData.page === 0 || loading()"
-        >
+          [disabled]="pageData.page === 0 || loading()">
           Précédent
         </button>
         <span>Page {{ pageData.page + 1 }} / {{ pageData.totalPages || 1 }} • {{ pageData.totalElements }} utilisateurs</span>
@@ -186,64 +208,68 @@
           type="button"
           class="button button--ghost"
           (click)="changePage(1)"
-          [disabled]="pageData.page >= pageData.totalPages - 1 || loading()"
-        >
+          [disabled]="pageData.page >= pageData.totalPages - 1 || loading()">
           Suivant
         </button>
       </footer>
-    </ng-container>
-
+    } @else {
+      @if (loading()) {
+        <table class="table--skeleton" aria-hidden="true">
+          <thead>
+            <tr>
+              @for (_ of skeletonColumns; track $index) {
+                <th></th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (_ of skeletonRows; track $index) {
+              <tr>
+                @for (__ of skeletonColumns; track $index) {
+                  <td>
+                    <span class="skeleton-bar"></span>
+                  </td>
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+        <span class="sr-only" aria-live="polite">Chargement des utilisateurs…</span>
+      } @else {
+        <div class="empty">Aucun utilisateur ne correspond à vos filtres.</div>
+      }
+    }
   </section>
 
-  <ng-template #loadingOrEmpty>
-    <ng-container *ngIf="loading(); else emptyState">
-      <table class="table--skeleton" aria-hidden="true">
-        <thead>
-          <tr>
-            <th *ngFor="let _ of skeletonColumns; let isLast = last" [class.col-actions]="isLast"></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let _ of skeletonRows">
-            <td *ngFor="let __ of skeletonColumns; let isLast = last" [class.col-actions]="isLast">
-              <span class="skeleton-bar"></span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <span class="sr-only" aria-live="polite">Chargement des utilisateurs…</span>
-    </ng-container>
-  </ng-template>
-
-  <ng-template #emptyState>
-    <div class="empty">Aucun utilisateur ne correspond à vos filtres.</div>
-  </ng-template>
-
-  <section class="card create" *ngIf="isAdmin() && showingCreate()">
-    <h3>Créer un utilisateur</h3>
-    <form class="create__form" [formGroup]="createForm" (ngSubmit)="onCreateUser()">
-      <label class="field">
-        <span>Email</span>
-        <input type="email" formControlName="email" placeholder="utilisateur@example.com" />
-      </label>
-      <label class="field">
-        <span>Nom complet</span>
-        <input type="text" formControlName="fullName" placeholder="Prénom Nom" />
-      </label>
-      <label class="field">
-        <span>Mot de passe</span>
-        <input type="password" formControlName="password" placeholder="Mot de passe robuste" autocomplete="new-password" />
-      </label>
-      <label class="field">
-        <span>Rôle</span>
-        <select formControlName="role">
-          <option *ngFor="let role of roles" [ngValue]="role">{{ role }}</option>
-        </select>
-      </label>
-      <div class="create__actions">
-        <button type="button" class="button button--ghost" (click)="cancelCreate()" [disabled]="saving()">Annuler</button>
-        <button type="submit" class="button" [disabled]="saving()">Créer</button>
-      </div>
-    </form>
-  </section>
+  @if (isAdmin() && showingCreate()) {
+    <section class="card create">
+      <h3>Créer un utilisateur</h3>
+      <form class="create__form" [formGroup]="createForm" (ngSubmit)="onCreateUser()">
+        <label class="field">
+          <span>Email</span>
+          <input type="email" formControlName="email" placeholder="utilisateur@example.com" />
+        </label>
+        <label class="field">
+          <span>Nom complet</span>
+          <input type="text" formControlName="fullName" placeholder="Prénom Nom" />
+        </label>
+        <label class="field">
+          <span>Mot de passe</span>
+          <input type="password" formControlName="password" placeholder="Mot de passe robuste" autocomplete="new-password" />
+        </label>
+        <label class="field">
+          <span>Rôle</span>
+          <select formControlName="role">
+            @for (role of roles; track role) {
+              <option [ngValue]="role">{{ role }}</option>
+            }
+          </select>
+        </label>
+        <div class="create__actions">
+          <button type="button" class="button button--ghost" (click)="cancelCreate()" [disabled]="saving()">Annuler</button>
+          <button type="submit" class="button" [disabled]="saving()">Créer</button>
+        </div>
+      </form>
+    </section>
+  }
 </section>

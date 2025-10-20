@@ -797,7 +797,7 @@ export class DashboardPageComponent implements OnInit {
       this.smartAssignmentMapInstance.setView({ lat: this.defaultCenter[0], lng: this.defaultCenter[1] }, this.defaultZoom);
     }
     this.refreshSmartAssignmentMapMarkers(this.smartAssignmentResult(), this.smartAssignmentLocation());
-    setTimeout(() => this.smartAssignmentMapInstance?.invalidateSize(), 80);
+    this.scheduleSmartAssignmentMapResize();
   }
 
   private onSmartAssignmentMapClick(latlng: { lat: number; lng: number }): void {
@@ -808,6 +808,18 @@ export class DashboardPageComponent implements OnInit {
     this.smartAssignmentState.set('idle');
     this.smartAssignmentResult.set(null);
     this.smartAssignmentError.set(null);
+  }
+
+  private scheduleSmartAssignmentMapResize(): void {
+    if (!this.smartAssignmentMapInstance || !this.isBrowser) {
+      return;
+    }
+    const delays = [0, 120, 360, 720];
+    for (const delay of delays) {
+      window.setTimeout(() => {
+        this.smartAssignmentMapInstance?.invalidateSize();
+      }, delay);
+    }
   }
 
   private async loadAiInsights(): Promise<void> {
